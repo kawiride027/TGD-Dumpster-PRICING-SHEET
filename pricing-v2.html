@@ -435,14 +435,25 @@ function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
     if (!canSend) return;
     setSending(true);
     setError("");
+    const binEntries = Object.entries(selectedBins);
+    const flatBins = {};
+    binEntries.forEach(([bin, info], i) => {
+      const n = i + 1;
+      flatBins["bin_" + n + "_size"] = bin;
+      flatBins["bin_" + n + "_base_price"] = info.basePrice.toFixed(2);
+      flatBins["bin_" + n + "_discount"] = info.discount.toFixed(2);
+      flatBins["bin_" + n + "_final_price"] = info.finalPrice.toFixed(2);
+      flatBins["bin_" + n + "_tons"] = info.tons;
+      flatBins["bin_" + n + "_rental_days"] = info.days;
+      flatBins["bin_" + n + "_extra_day_fee"] = info.xtra;
+      flatBins["bin_" + n + "_overload_rate"] = info.over;
+    });
     const payload = {
       csr_name: csrName, customer_name: custName, customer_phone: custPhone, customer_email: custEmail,
       zip_code: matchedZip, zone_name: zone.name, customer_type: tab === "residential" ? "Residential" : "Contractor",
-      bins: Object.entries(selectedBins).map(([bin, info]) => ({
-        bin_size: bin, base_price: info.basePrice, discount: info.discount, final_price: info.finalPrice,
-        tons_included: info.tons, rental_days: info.days, extra_day_fee: info.xtra, overload_rate: info.over
-      })),
-      total_quote: totalQuote, company_name: COMPANY_NAME, company_phone: COMPANY_PHONE, company_email: COMPANY_EMAIL,
+      bin_count: binEntries.length,
+      ...flatBins,
+      total_quote: totalQuote.toFixed(2), company_name: COMPANY_NAME, company_phone: COMPANY_PHONE, company_email: COMPANY_EMAIL,
       timestamp: new Date().toISOString()
     };
     try {

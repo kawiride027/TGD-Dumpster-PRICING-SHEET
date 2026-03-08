@@ -430,7 +430,7 @@ function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
 
   const totalQuote = Object.values(selectedBins).reduce((s, b) => s + b.finalPrice, 0);
   const binCount = Object.keys(selectedBins).length;
-  const canSend = csrName && custName && custPhone && custEmail && binCount > 0;
+  const canSend = csrName && custName && custPhone && binCount > 0;
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -539,8 +539,8 @@ function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
         )
       ),
       error && React.createElement("div", { style: { padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600, marginBottom: 12 } }, "\u26A0 " + error),
-      React.createElement("button", { onClick: handleSend, disabled: !canSend || sending, style: { width: "100%", padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && !sending ? "pointer" : "not-allowed", background: canSend && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, transition: "all 0.2s", boxShadow: canSend ? "0 4px 20px rgba(245,158,11,0.2)" : "none" } }, sending ? "Sending..." : "\uD83D\uDCE8 Send Quote via Email & SMS"),
-      !canSend && !sending && React.createElement("div", { style: { textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" } }, !csrName ? "Select your name" : !custName ? "Enter customer name" : !custPhone ? "Enter phone number" : !custEmail ? "Enter email" : "Select at least one bin")
+      React.createElement("button", { onClick: handleSend, disabled: !canSend || sending, style: { width: "100%", padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && !sending ? "pointer" : "not-allowed", background: canSend && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, transition: "all 0.2s", boxShadow: canSend ? "0 4px 20px rgba(245,158,11,0.2)" : "none" } }, sending ? "Sending..." : custEmail ? "\uD83D\uDCE8 Send Quote via Email & SMS" : "\uD83D\uDCE8 Send Quote via SMS"),
+      !canSend && !sending && React.createElement("div", { style: { textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" } }, !csrName ? "Select your name" : !custName ? "Enter customer name" : !custPhone ? "Enter phone number" : "Select at least one bin")
     )
   );
 }

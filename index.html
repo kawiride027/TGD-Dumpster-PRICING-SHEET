@@ -42,12 +42,12 @@ const COMPANY_EMAIL = "info@thegreendumpster.com";
 const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/kqEtDp99ma4X3GLUjhv2/webhook-trigger/cb484d3a-a82f-4b15-b5ce-fdfe3e35b663";
 
 // =====================================================
-// ZONE DATA
+// ZONE DATA — v2: EV Zone Split (7 zips moved to Valley)
 // =====================================================
 const ZONES = [
   {
     name: "TGD Valley Zone", miles: "14 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$130", dryRunSmAdj: "-$30", multiBin3Yd: null,
-    zips: ["91303","91304","91306","91307","91311","91324","91325","91326","91330","91335","91342","91343","91344","91345","91367","91371","91406"],
+    zips: ["91303","91304","91306","91307","91311","91324","91325","91326","91330","91331","91335","91340","91342","91343","91344","91345","91367","91371","91401","91402","91405","91406","91411","91605"],
     pricing: [
       { bin: "3 Yard", cp: 235.80, ct: 0.8, rp: 235.80, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
       { bin: "3 Yard w/ Wheels", cp: 269.73, ct: 0.65, rp: 269.73, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
@@ -89,7 +89,7 @@ const ZONES = [
   },
   {
     name: "TGD East Valley Zone", miles: "20 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$150", dryRunSmAdj: "-$50", multiBin3Yd: 35,
-    zips: ["91331","91340","91401","91402","91405","91411","91423","91504","91505","91506","91424","91601","91602","91604","91605","91606","91607","91608"],
+    zips: ["91423","91424","91504","91505","91506","91601","91602","91604","91606","91607","91608"],
     pricing: [
       { bin: "3 Yard", cp: 240.80, ct: 0.8, rp: 240.80, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
       { bin: "3 Yard w/ Wheels", cp: 281.73, ct: 0.65, rp: 281.73, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
@@ -395,9 +395,6 @@ function DiscountPanel({ zone, tab }) {
   );
 }
 
-// =====================================================
-// QUOTE BUILDER
-// =====================================================
 function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
   const [csrName, setCsrName] = useState("");
   const [custName, setCustName] = useState("");
@@ -407,147 +404,17 @@ function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-
   const availableBins = zone.pricing.filter(p => (tab === "residential" ? p.rp : p.cp) !== null);
-
-  const toggleBin = (binName) => {
-    setSelectedBins(prev => {
-      const next = { ...prev };
-      if (next[binName]) { delete next[binName]; }
-      else {
-        const p = zone.pricing.find(x => x.bin === binName);
-        const base = tab === "residential" ? p.rp : p.cp;
-        next[binName] = { basePrice: base, discount: 0, maxDisc: p.disc, finalPrice: base, tons: tab === "residential" ? p.rt : p.ct, days: p.days, xtra: p.xtra, over: p.over };
-      }
-      return next;
-    });
-  };
-
-  const setDiscount = (binName, val) => {
-    const num = Math.min(Math.max(0, parseInt(val) || 0), selectedBins[binName].maxDisc);
-    setSelectedBins(prev => ({ ...prev, [binName]: { ...prev[binName], discount: num, finalPrice: prev[binName].basePrice - num } }));
-  };
-
+  const toggleBin = (binName) => { setSelectedBins(prev => { const next = { ...prev }; if (next[binName]) { delete next[binName]; } else { const p = zone.pricing.find(x => x.bin === binName); const base = tab === "residential" ? p.rp : p.cp; next[binName] = { basePrice: base, discount: 0, maxDisc: p.disc, finalPrice: base, tons: tab === "residential" ? p.rt : p.ct, days: p.days, xtra: p.xtra, over: p.over }; } return next; }); };
+  const setDiscount = (binName, val) => { const num = Math.min(Math.max(0, parseInt(val) || 0), selectedBins[binName].maxDisc); setSelectedBins(prev => ({ ...prev, [binName]: { ...prev[binName], discount: num, finalPrice: prev[binName].basePrice - num } })); };
   const totalQuote = Object.values(selectedBins).reduce((s, b) => s + b.finalPrice, 0);
   const binCount = Object.keys(selectedBins).length;
-  const canSend = csrName && custName && custPhone && custEmail && binCount > 0;
-
-  const handleSend = async () => {
-    if (!canSend) return;
-    setSending(true);
-    setError("");
-    const binEntries = Object.entries(selectedBins);
-    const flatBins = {};
-    binEntries.forEach(([bin, info], i) => {
-      const n = i + 1;
-      flatBins["bin_" + n + "_size"] = bin;
-      flatBins["bin_" + n + "_base_price"] = info.basePrice.toFixed(2);
-      flatBins["bin_" + n + "_discount"] = info.discount.toFixed(2);
-      flatBins["bin_" + n + "_final_price"] = info.finalPrice.toFixed(2);
-      flatBins["bin_" + n + "_tons"] = info.tons;
-      flatBins["bin_" + n + "_rental_days"] = info.days;
-      flatBins["bin_" + n + "_extra_day_fee"] = info.xtra;
-      flatBins["bin_" + n + "_overload_rate"] = info.over;
-    });
-    const payload = {
-      csr_name: csrName, csr_email: CSR_EMAILS[csrName] || "office@thegreendumpster.com", customer_name: custName, customer_phone: custPhone, customer_email: custEmail,
-      zip_code: matchedZip, zone_name: zone.name, customer_type: tab === "residential" ? "Residential" : "Contractor",
-      bin_count: binEntries.length,
-      ...flatBins,
-      total_quote: totalQuote.toFixed(2), company_name: COMPANY_NAME, company_phone: COMPANY_PHONE, company_email: COMPANY_EMAIL,
-      timestamp: new Date().toISOString()
-    };
-    try {
-      if (GHL_WEBHOOK_URL && GHL_WEBHOOK_URL !== "YOUR_GHL_WEBHOOK_URL_HERE") {
-        await fetch(GHL_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      }
-      setSent(true);
-    } catch (err) { setError("Failed to send. Check webhook URL."); }
-    setSending(false);
-  };
-
-  if (sent) {
-    return React.createElement("div", { style: { marginTop: 16, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" } },
-      React.createElement("div", { style: { fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" } }, "\u2705"),
-      React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 } }, "Quote Sent!"),
-      React.createElement("div", { style: { fontSize: 13, color: "#86a086", marginBottom: 4 } }, "Sent to " + custName + " via Email & SMS"),
-      React.createElement("div", { style: { fontSize: 12, color: "#4a6b4a", marginBottom: 20 } }, binCount + " bin(s) \u2022 " + fmt(totalQuote) + " total \u2022 CSR: " + csrName),
-      React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "center" } },
-        React.createElement("button", { onClick: () => { setSent(false); setCustName(""); setCustPhone(""); setCustEmail(""); setSelectedBins({}); }, style: { padding: "10px 20px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", color: "#4ade80", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "New Quote"),
-        React.createElement("button", { onClick: onClose, style: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "Back to Pricing")
-      )
-    );
-  }
-
-  return React.createElement("div", { style: { marginTop: 16, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", overflow: "hidden", animation: "slideIn 0.3s ease" } },
-    React.createElement("div", { style: { padding: "16px 20px", background: "linear-gradient(135deg,#22c55e15,#16a34a10)", borderBottom: "1px solid #2d4a2d", display: "flex", alignItems: "center", justifyContent: "space-between" } },
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-        React.createElement("div", { style: { width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 } }, "\uD83D\uDCDD"),
-        React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#fff" } }, "Build Quote")
-      ),
-      React.createElement("button", { onClick: onClose, style: { background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 30, height: 30, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")
-    ),
-    React.createElement("div", { style: { padding: 20 } },
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 } },
-        React.createElement("div", null, React.createElement("label", { style: labelStyle }, "CSR Name"),
-          React.createElement("select", { value: csrName, onChange: e => setCsrName(e.target.value), style: { ...inputStyle, cursor: "pointer", appearance: "auto" } },
-            React.createElement("option", { value: "" }, "Select CSR..."),
-            CSR_NAMES.map(n => React.createElement("option", { key: n, value: n }, n))
-          )
-        ),
-        React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Type"),
-          React.createElement("div", { style: { padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#4ade80", fontSize: 14, fontWeight: 700 } }, tab === "residential" ? "Residential" : "Contractor")
-        )
-      ),
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 } },
-        React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Name"), React.createElement("input", { value: custName, onChange: e => setCustName(e.target.value), placeholder: "John Smith", style: inputStyle })),
-        React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Phone"), React.createElement("input", { value: custPhone, onChange: e => setCustPhone(e.target.value), placeholder: "(818) 555-1234", type: "tel", style: inputStyle })),
-        React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Email"), React.createElement("input", { value: custEmail, onChange: e => setCustEmail(e.target.value), placeholder: "john@email.com", type: "email", style: inputStyle }))
-      ),
-      React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Select Bin Size(s)"),
-      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 } },
-        availableBins.map(p => {
-          const price = tab === "residential" ? p.rp : p.cp;
-          const sel = !!selectedBins[p.bin];
-          return React.createElement("button", { key: p.bin, onClick: () => toggleBin(p.bin), style: { padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.15s", background: sel ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: sel ? "2px solid #4ade80" : "1px solid #2d4a2d", color: sel ? "#fff" : "#86a086" } }, p.bin + " \u2022 " + fmt(price));
-        })
-      ),
-      binCount > 0 && React.createElement("div", { style: { marginBottom: 16 } },
-        React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Quote Details"),
-        Object.entries(selectedBins).map(([binName, info]) =>
-          React.createElement("div", { key: binName, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" } },
-            React.createElement("div", { style: { flex: 1 } },
-              React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#d1e7d1" } }, binName),
-              React.createElement("div", { style: { fontSize: 11, color: "#4a6b4a" } }, info.tons + "T \u2022 " + info.days + " days \u2022 $" + info.xtra + "/xtra day")
-            ),
-            info.maxDisc > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-              React.createElement("span", { style: { fontSize: 10, color: "#6b8f6b" } }, "Disc:"),
-              React.createElement("select", { value: info.discount, onChange: e => setDiscount(binName, e.target.value), style: { padding: "4px 8px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: info.discount > 0 ? "#f59e0b" : "#6b8f6b", fontSize: 12, fontWeight: 700, cursor: "pointer", appearance: "auto" } },
-                React.createElement("option", { value: 0 }, "$0"),
-                Array.from({ length: Math.floor(info.maxDisc / 5) }, (_, i) => (i + 1) * 5).map(v => React.createElement("option", { key: v, value: v }, "-$" + v))
-              )
-            ),
-            React.createElement("div", { style: { textAlign: "right", minWidth: 80 } },
-              info.discount > 0 && React.createElement("div", { style: { fontSize: 10, color: "#4a4a4a", textDecoration: "line-through" } }, fmt(info.basePrice)),
-              React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: info.discount > 0 ? "#f59e0b" : "#4ade80" } }, fmt(info.finalPrice))
-            )
-          )
-        ),
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" } },
-          React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#86a086" } }, "Quote Total (" + binCount + " bin" + (binCount > 1 ? "s" : "") + ")"),
-          React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" } }, fmt(totalQuote))
-        )
-      ),
-      error && React.createElement("div", { style: { padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600, marginBottom: 12 } }, "\u26A0 " + error),
-      React.createElement("button", { onClick: handleSend, disabled: !canSend || sending, style: { width: "100%", padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && !sending ? "pointer" : "not-allowed", background: canSend && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, transition: "all 0.2s", boxShadow: canSend ? "0 4px 20px rgba(245,158,11,0.2)" : "none" } }, sending ? "Sending..." : "\uD83D\uDCE8 Send Quote via Email & SMS"),
-      !canSend && !sending && React.createElement("div", { style: { textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" } }, !csrName ? "Select your name" : !custName ? "Enter customer name" : !custPhone ? "Enter phone number" : !custEmail ? "Enter email" : "Select at least one bin")
-    )
-  );
+  const canSend = csrName && custName && custPhone && binCount > 0;
+  const handleSend = async () => { if (!canSend) return; setSending(true); setError(""); const binEntries = Object.entries(selectedBins); const flatBins = {}; binEntries.forEach(([bin, info], i) => { const n = i + 1; flatBins["bin_" + n + "_size"] = bin; flatBins["bin_" + n + "_base_price"] = info.basePrice.toFixed(2); flatBins["bin_" + n + "_discount"] = info.discount.toFixed(2); flatBins["bin_" + n + "_final_price"] = info.finalPrice.toFixed(2); flatBins["bin_" + n + "_tons"] = info.tons; flatBins["bin_" + n + "_rental_days"] = info.days; flatBins["bin_" + n + "_extra_day_fee"] = info.xtra; flatBins["bin_" + n + "_overload_rate"] = info.over; }); const payload = { csr_name: csrName, csr_email: CSR_EMAILS[csrName] || "office@thegreendumpster.com", customer_name: custName, customer_phone: custPhone, customer_email: custEmail, zip_code: matchedZip, zone_name: zone.name, customer_type: tab === "residential" ? "Residential" : "Contractor", bin_count: binEntries.length, ...flatBins, total_quote: totalQuote.toFixed(2), company_name: COMPANY_NAME, company_phone: COMPANY_PHONE, company_email: COMPANY_EMAIL, timestamp: new Date().toISOString() }; try { if (GHL_WEBHOOK_URL && GHL_WEBHOOK_URL !== "YOUR_GHL_WEBHOOK_URL_HERE") { await fetch(GHL_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); } setSent(true); } catch (err) { setError("Failed to send. Check webhook URL."); } setSending(false); };
+  if (sent) { return React.createElement("div", { style: { marginTop: 16, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" } }, React.createElement("div", { style: { fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" } }, "\u2705"), React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 } }, "Quote Sent!"), React.createElement("div", { style: { fontSize: 13, color: "#86a086", marginBottom: 4 } }, "Sent to " + custName + " via Email & SMS"), React.createElement("div", { style: { fontSize: 12, color: "#4a6b4a", marginBottom: 20 } }, binCount + " bin(s) \u2022 " + fmt(totalQuote) + " total \u2022 CSR: " + csrName), React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "center" } }, React.createElement("button", { onClick: () => { setSent(false); setCustName(""); setCustPhone(""); setCustEmail(""); setSelectedBins({}); }, style: { padding: "10px 20px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", color: "#4ade80", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "New Quote"), React.createElement("button", { onClick: onClose, style: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "Back to Pricing"))); }
+  return React.createElement("div", { style: { marginTop: 16, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", overflow: "hidden", animation: "slideIn 0.3s ease" } }, React.createElement("div", { style: { padding: "16px 20px", background: "linear-gradient(135deg,#22c55e15,#16a34a10)", borderBottom: "1px solid #2d4a2d", display: "flex", alignItems: "center", justifyContent: "space-between" } }, React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, React.createElement("div", { style: { width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 } }, "\uD83D\uDCDD"), React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#fff" } }, "Build Quote")), React.createElement("button", { onClick: onClose, style: { background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 30, height: 30, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")), React.createElement("div", { style: { padding: 20 } }, React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 } }, React.createElement("div", null, React.createElement("label", { style: labelStyle }, "CSR Name"), React.createElement("select", { value: csrName, onChange: e => setCsrName(e.target.value), style: { ...inputStyle, cursor: "pointer", appearance: "auto" } }, React.createElement("option", { value: "" }, "Select CSR..."), CSR_NAMES.map(n => React.createElement("option", { key: n, value: n }, n)))), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Type"), React.createElement("div", { style: { padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#4ade80", fontSize: 14, fontWeight: 700 } }, tab === "residential" ? "Residential" : "Contractor"))), React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 } }, React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Name"), React.createElement("input", { value: custName, onChange: e => setCustName(e.target.value), placeholder: "John Smith", style: inputStyle })), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Phone"), React.createElement("input", { value: custPhone, onChange: e => setCustPhone(e.target.value), placeholder: "(818) 555-1234", type: "tel", style: inputStyle })), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Email"), React.createElement("input", { value: custEmail, onChange: e => setCustEmail(e.target.value), placeholder: "john@email.com", type: "email", style: inputStyle }))), React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Select Bin Size(s)"), React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 } }, availableBins.map(p => { const price = tab === "residential" ? p.rp : p.cp; const sel = !!selectedBins[p.bin]; return React.createElement("button", { key: p.bin, onClick: () => toggleBin(p.bin), style: { padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.15s", background: sel ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: sel ? "2px solid #4ade80" : "1px solid #2d4a2d", color: sel ? "#fff" : "#86a086" } }, p.bin + " \u2022 " + fmt(price)); })), binCount > 0 && React.createElement("div", { style: { marginBottom: 16 } }, React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Quote Details"), Object.entries(selectedBins).map(([binName, info]) => React.createElement("div", { key: binName, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" } }, React.createElement("div", { style: { flex: 1 } }, React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#d1e7d1" } }, binName), React.createElement("div", { style: { fontSize: 11, color: "#4a6b4a" } }, info.tons + "T \u2022 " + info.days + " days \u2022 $" + info.xtra + "/xtra day")), info.maxDisc > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, React.createElement("span", { style: { fontSize: 10, color: "#6b8f6b" } }, "Disc:"), React.createElement("select", { value: info.discount, onChange: e => setDiscount(binName, e.target.value), style: { padding: "4px 8px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: info.discount > 0 ? "#f59e0b" : "#6b8f6b", fontSize: 12, fontWeight: 700, cursor: "pointer", appearance: "auto" } }, React.createElement("option", { value: 0 }, "$0"), Array.from({ length: Math.floor(info.maxDisc / 5) }, (_, i) => (i + 1) * 5).map(v => React.createElement("option", { key: v, value: v }, "-$" + v)))), React.createElement("div", { style: { textAlign: "right", minWidth: 80 } }, info.discount > 0 && React.createElement("div", { style: { fontSize: 10, color: "#4a4a4a", textDecoration: "line-through" } }, fmt(info.basePrice)), React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: info.discount > 0 ? "#f59e0b" : "#4ade80" } }, fmt(info.finalPrice))))), React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" } }, React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#86a086" } }, "Quote Total (" + binCount + " bin" + (binCount > 1 ? "s" : "") + ")"), React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" } }, fmt(totalQuote)))), error && React.createElement("div", { style: { padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600, marginBottom: 12 } }, "\u26A0 " + error), React.createElement("button", { onClick: handleSend, disabled: !canSend || sending, style: { width: "100%", padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && !sending ? "pointer" : "not-allowed", background: canSend && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, transition: "all 0.2s", boxShadow: canSend ? "0 4px 20px rgba(245,158,11,0.2)" : "none" } }, sending ? "Sending..." : custEmail ? "\uD83D\uDCE8 Send Quote via Email & SMS" : "\uD83D\uDCE8 Send Quote via SMS"), !canSend && !sending && React.createElement("div", { style: { textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" } }, !csrName ? "Select your name" : !custName ? "Enter customer name" : !custPhone ? "Enter phone number" : "Select at least one bin")));
 }
 
-// =====================================================
-// APP
-// =====================================================
 function App() {
   const [query, setQuery] = useState("");
   const [zone, setZone] = useState(null);
@@ -556,12 +423,9 @@ function App() {
   const [tab, setTab] = useState("contractor");
   const [showQB, setShowQB] = useState(false);
   const inputRef = useRef(null);
-
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
-
   const handleSearch = (val) => { setQuery(val); setShowQB(false); const c = val.trim(); if (c.length === 5 && /^\d{5}$/.test(c)) { const f = ZIP_MAP[c]; if (f) { setZone(f); setMatchedZip(c); setNotFound(false); } else { setZone(null); setMatchedZip(""); setNotFound(true); } } else { setZone(null); setMatchedZip(""); setNotFound(false); } };
   const handleClear = () => { setQuery(""); setZone(null); setMatchedZip(""); setNotFound(false); setShowQB(false); inputRef.current && inputRef.current.focus(); };
-
   const serviceBg = zone && zone.service === "In-House" ? "#14532d" : zone && zone.service === "Outsourced" ? "#7c2d12" : zone && zone.service === "NEED HAULER" ? "#7f1d1d" : "#1e3a2e";
   const th = { padding: "12px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b8f6b", borderBottom: "2px solid #2d4a2d" };
   const td = { padding: "11px 10px", textAlign: "center", color: "#a7c4a7" };
@@ -572,19 +436,15 @@ function App() {
       React.createElement("div", { style: { textAlign: "center", marginBottom: 36 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 } },
           React.createElement("div", { style: { width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, "\u267B"),
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#4ade80" } }, "The Green Dumpster")
-        ),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#4ade80" } }, "The Green Dumpster")),
         React.createElement("h1", { style: { fontSize: 28, fontWeight: 800, margin: "4px 0 4px", color: "#fff", letterSpacing: -0.5 } }, "Pricing Lookup"),
-        React.createElement("p", { style: { fontSize: 13, color: "#6b8f6b", margin: 0 } }, "Type a 5-digit zip code to instantly see zone pricing")
-      ),
+        React.createElement("p", { style: { fontSize: 13, color: "#6b8f6b", margin: 0 } }, "Type a 5-digit zip code to instantly see zone pricing")),
       React.createElement("div", { style: { position: "relative", maxWidth: 440, margin: "0 auto 32px" } },
         React.createElement("div", { style: { position: "relative", background: "linear-gradient(135deg,#1a2e1a,#162016)", borderRadius: 16, border: zone ? "2px solid #22c55e" : notFound ? "2px solid #ef4444" : "2px solid #2d4a2d", boxShadow: zone ? "0 0 30px rgba(34,197,94,0.15)" : "none", transition: "all 0.3s" } },
           React.createElement("div", { style: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: zone ? "#22c55e" : notFound ? "#ef4444" : "#4a6b4a", fontSize: 20 } }, zone ? "\u2713" : notFound ? "\u2715" : "\u2315"),
           React.createElement("input", { ref: inputRef, type: "text", value: query, onChange: e => handleSearch(e.target.value), placeholder: "Enter zip code...", maxLength: 5, inputMode: "numeric", style: { width: "100%", boxSizing: "border-box", padding: "18px 50px 18px 48px", fontSize: 22, fontWeight: 700, fontFamily: "'SF Mono','Consolas',monospace", letterSpacing: 6, background: "transparent", border: "none", outline: "none", color: "#fff", textAlign: "center" } }),
-          query && React.createElement("button", { onClick: handleClear, style: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")
-        ),
-        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area")
-      ),
+          query && React.createElement("button", { onClick: handleClear, style: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")),
+        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area")),
       zone && React.createElement("div", { style: { animation: "fadeSlide 0.35s ease" } },
         React.createElement("div", { style: { background: "linear-gradient(135deg,#1a2e1a 0%,#162016 100%)", borderRadius: 16, border: "1px solid #2d4a2d", padding: 24, marginBottom: 20 } },
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16 } },
@@ -593,26 +453,17 @@ function App() {
               React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
                 React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: serviceBg, color: "#fff", border: "1px solid " + (zone.service === "In-House" ? "#22c55e33" : zone.service === "NEED HAULER" ? "#ef444433" : "#f9731633") } }, zone.service),
                 React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#4ade80", border: "1px solid #2d4a2d" } }, "ZIP: " + matchedZip),
-                zone.miles !== "N/A" && React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#86efac", border: "1px solid #2d4a2d" } }, zone.miles + " from yard")
-              )
-            ),
+                zone.miles !== "N/A" && React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#86efac", border: "1px solid #2d4a2d" } }, zone.miles + " from yard"))),
             React.createElement("div", { style: { textAlign: "right" } },
               zone.hauler && React.createElement("div", { style: { fontSize: 13, color: "#a7c4a7", marginBottom: 2 } }, React.createElement("span", { style: { fontWeight: 700, color: "#d1e7d1" } }, zone.hauler)),
-              zone.phone && React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" } }, zone.phone)
-            )
-          ),
+              zone.phone && React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" } }, zone.phone))),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 } },
             zone.dryRunLg && React.createElement(InfoChip, { label: "Dry Run (Lg)", value: zone.dryRunLg }),
-            zone.dryRunSmAdj && React.createElement(InfoChip, { label: "Sm Truck Adj", value: zone.dryRunSmAdj })
-          ),
-          zone.notes && React.createElement("div", { style: { marginTop: 14, padding: "10px 14px", borderRadius: 10, background: zone.service === "NEED HAULER" ? "rgba(239,68,68,0.1)" : "rgba(250,204,21,0.08)", border: zone.service === "NEED HAULER" ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(250,204,21,0.2)", fontSize: 12, fontWeight: 600, color: zone.service === "NEED HAULER" ? "#fca5a5" : "#fde68a" } }, "\u26A0 " + zone.notes)
-        ),
+            zone.dryRunSmAdj && React.createElement(InfoChip, { label: "Sm Truck Adj", value: zone.dryRunSmAdj })),
+          zone.notes && React.createElement("div", { style: { marginTop: 14, padding: "10px 14px", borderRadius: 10, background: zone.service === "NEED HAULER" ? "rgba(239,68,68,0.1)" : "rgba(250,204,21,0.08)", border: zone.service === "NEED HAULER" ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(250,204,21,0.2)", fontSize: 12, fontWeight: 600, color: zone.service === "NEED HAULER" ? "#fca5a5" : "#fde68a" } }, "\u26A0 " + zone.notes)),
         zone.pricing.length > 0 && React.createElement(React.Fragment, null,
           React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 16, background: "#121e12", borderRadius: 12, padding: 4 } },
-            ["contractor", "residential", "both"].map(t =>
-              React.createElement("button", { key: t, onClick: () => { setTab(t); setShowQB(false); }, style: { flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, background: tab === t ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: tab === t ? "#fff" : "#4a6b4a", transition: "all 0.2s" } }, t === "both" ? "Side by Side" : t)
-            )
-          ),
+            ["contractor", "residential", "both"].map(t => React.createElement("button", { key: t, onClick: () => { setTab(t); setShowQB(false); }, style: { flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, background: tab === t ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: tab === t ? "#fff" : "#4a6b4a", transition: "all 0.2s" } }, t === "both" ? "Side by Side" : t))),
           React.createElement("div", { style: { borderRadius: 16, overflow: "hidden", border: "1px solid #2d4a2d" } },
             React.createElement("div", { style: { overflowX: "auto" } },
               React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 13 } },
@@ -625,9 +476,7 @@ function App() {
                     (tab === "residential" || tab === "both") && React.createElement("th", { style: th }, "Tons"),
                     React.createElement("th", { style: th }, "Days"),
                     React.createElement("th", { style: th }, "Xtra/Day"),
-                    React.createElement("th", { style: th }, "Overload")
-                  )
-                ),
+                    React.createElement("th", { style: th }, "Overload"))),
                 React.createElement("tbody", null,
                   zone.pricing.filter(p => p.cp !== null || p.rp !== null).map((p, i) =>
                     React.createElement("tr", { key: i, style: { background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)", borderBottom: "1px solid #1e2e1e" } },
@@ -638,13 +487,7 @@ function App() {
                       (tab === "residential" || tab === "both") && React.createElement("td", { style: td }, p.rt),
                       React.createElement("td", { style: td }, p.days),
                       React.createElement("td", { style: td }, "$" + p.xtra),
-                      React.createElement("td", { style: { ...td, fontSize: 11, color: "#86a086" } }, p.over)
-                    )
-                  )
-                )
-              )
-            )
-          ),
+                      React.createElement("td", { style: { ...td, fontSize: 11, color: "#86a086" } }, p.over)))))),
           !showQB && tab !== "both" && React.createElement("button", { onClick: () => setShowQB(true), style: { width: "100%", marginTop: 16, padding: "14px 0", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: "0 4px 20px rgba(245,158,11,0.2)" } }, "\uD83D\uDCDD Build Quote"),
           tab === "both" && !showQB && React.createElement("div", { style: { textAlign: "center", marginTop: 12, fontSize: 12, color: "#4a6b4a" } }, "Switch to Contractor or Residential tab to build a quote"),
           showQB && React.createElement(QuoteBuilder, { zone, tab, matchedZip, onClose: () => setShowQB(false) }),
@@ -652,18 +495,11 @@ function App() {
           React.createElement("div", { style: { marginTop: 20, padding: "16px 18px", borderRadius: 14, background: "rgba(26,46,26,0.3)", border: "1px solid #1e2e1e" } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4a6b4a", marginBottom: 8 } }, "Other zips in this zone (" + zone.zips.length + " total)"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              zone.zips.slice().sort().map(z => React.createElement("span", { key: z, onClick: () => handleSearch(z), style: { padding: "3px 8px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 600, background: z === matchedZip ? "#22c55e" : "#1e2e1e", color: z === matchedZip ? "#000" : "#6b8f6b", cursor: "pointer", transition: "all 0.15s", border: z === matchedZip ? "1px solid #22c55e" : "1px solid #2d3d2d" } }, z))
-            )
-          )
-        )
-      ),
+              zone.zips.slice().sort().map(z => React.createElement("span", { key: z, onClick: () => handleSearch(z), style: { padding: "3px 8px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 600, background: z === matchedZip ? "#22c55e" : "#1e2e1e", color: z === matchedZip ? "#000" : "#6b8f6b", cursor: "pointer", transition: "all 0.15s", border: z === matchedZip ? "1px solid #22c55e" : "1px solid #2d3d2d" } }, z)))))),
       !zone && !notFound && React.createElement("div", { style: { textAlign: "center", padding: "40px 20px", color: "#3d5a3d" } },
         React.createElement("div", { style: { fontSize: 48, marginBottom: 12, opacity: 0.3 } }, "\u2315"),
         React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, "Enter a zip code above to get started"),
-        React.createElement("div", { style: { fontSize: 12, marginTop: 4, color: "#2d4a2d" } }, "Covers " + Object.keys(ZIP_MAP).length + " zip codes across " + ZONES.length + " zones")
-      )
-    )
-  );
+        React.createElement("div", { style: { fontSize: 12, marginTop: 4, color: "#2d4a2d" } }, "Covers " + Object.keys(ZIP_MAP).length + " zip codes across " + ZONES.length + " zones"))));
 }
 
 ReactDOM.render(React.createElement(App), document.getElementById("root"));

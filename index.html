@@ -11,12 +11,9 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0a0f0a; }
-  input::placeholder { color: #3d5a3d !important; font-weight: 400 !important; letter-spacing: normal !important; }
-  select { color: #fff; }
+  input::placeholder { color: #3d5a3d !important; letter-spacing: 2px !important; font-weight: 500 !important; }
   @keyframes fadeSlide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes slideDown { from { opacity: 0; max-height: 0; transform: translateY(-8px); } to { opacity: 1; max-height: 1200px; transform: translateY(0); } }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes successPulse { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: #0a0f0a; }
   ::-webkit-scrollbar-thumb { background: #2d4a2d; border-radius: 3px; }
@@ -28,26 +25,23 @@
 const { useState, useEffect, useRef } = React;
 
 // =====================================================
-// CONFIG
-// =====================================================
-const CSR_NAMES = ["Evelyn","Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","Dustin","Clint"];
-const CSR_EMAILS = {"Evelyn":"evelyn@thegreendumpster.com","Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
-const COMPANY_NAME = "The Green Dumpster";
-const COMPANY_PHONE = "(818) 800-8888";
-const COMPANY_EMAIL = "info@thegreendumpster.com";
-
-// =====================================================
-// GHL WEBHOOK — PASTE YOUR WEBHOOK URL HERE
-// =====================================================
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/kqEtDp99ma4X3GLUjhv2/webhook-trigger/cb484d3a-a82f-4b15-b5ce-fdfe3e35b663";
-
-// =====================================================
-// ZONE DATA — v2: EV Zone Split (7 zips moved to Valley)
+// ZONE DATA — EDIT PRICING HERE
+// cp = contractor price, rp = residential price
+// ct/rt = tons included, null = not available (shows N/A)
+// disc = max discount off per bin
+// multiBin3Yd = discount per bin if customer rents 2x 3Yd
 // =====================================================
 const ZONES = [
   {
-    name: "TGD Valley Zone", miles: "14 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$130", dryRunSmAdj: "-$30", multiBin3Yd: null,
-    zips: ["91303","91304","91306","91307","91311","91324","91325","91326","91330","91331","91335","91340","91342","91343","91344","91345","91367","91371","91401","91402","91405","91406","91411","91605"],
+    name: "TGD Valley Zone",
+    miles: "14 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$130",
+    dryRunSmAdj: "-$30",
+    multiBin3Yd: null,
+    zips: ["91303","91304","91306","91307","91311","91324","91325","91326","91330","91335","91342","91343","91344","91345","91367","91371","91406"],
     pricing: [
       { bin: "3 Yard", cp: 235.80, ct: 0.8, rp: 235.80, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
       { bin: "3 Yard w/ Wheels", cp: 269.73, ct: 0.65, rp: 269.73, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
@@ -60,7 +54,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD South Valley Zone", miles: "18 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$150", dryRunSmAdj: "-$50", multiBin3Yd: 35,
+    name: "TGD South Valley Zone",
+    miles: "18 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$150",
+    dryRunSmAdj: "-$50",
+    multiBin3Yd: 35,
     zips: ["91316","91356","91364","91403","91436"],
     pricing: [
       { bin: "3 Yard", cp: 258.73, ct: 0.8, rp: 258.73, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
@@ -74,7 +75,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD South West Zone", miles: "20 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$150", dryRunSmAdj: "-$50", multiBin3Yd: 30,
+    name: "TGD South West Zone",
+    miles: "20 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$150",
+    dryRunSmAdj: "-$50",
+    multiBin3Yd: 30,
     zips: ["90290","91301","91302"],
     pricing: [
       { bin: "3 Yard", cp: 265.59, ct: 0.8, rp: 265.59, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
@@ -88,8 +96,15 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD East Valley Zone", miles: "20 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$150", dryRunSmAdj: "-$50", multiBin3Yd: 35,
-    zips: ["91423","91424","91504","91505","91506","91601","91602","91604","91606","91607","91608"],
+    name: "TGD East Valley Zone",
+    miles: "20 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$150",
+    dryRunSmAdj: "-$50",
+    multiBin3Yd: 35,
+    zips: ["91331","91340","91401","91402","91405","91411","91423","91504","91505","91506","91424","91601","91602","91604","91605","91606","91607","91608"],
     pricing: [
       { bin: "3 Yard", cp: 240.80, ct: 0.8, rp: 240.80, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
       { bin: "3 Yard w/ Wheels", cp: 281.73, ct: 0.65, rp: 281.73, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 30 },
@@ -102,7 +117,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD LA Zone", miles: "28 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$200", dryRunSmAdj: "-$70", multiBin3Yd: 50,
+    name: "TGD LA Zone",
+    miles: "28 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$200",
+    dryRunSmAdj: "-$70",
+    multiBin3Yd: 50,
     notes: "90210 & 90211: NO bins South of Sunset Blvd. North of Sunset = driveway placement ONLY.",
     zips: ["90004","90005","90006","90010","90016","90020","90024","90025","90026","90027","90028","90029","90034","90035","90036","90038","90039","90046","90048","90057","90064","90067","90068","90069","90073","90077","90095","90210","90211","90212"],
     pricing: [
@@ -117,7 +139,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD Far East Valley Zone", miles: "28 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$175", dryRunSmAdj: "-$50", multiBin3Yd: 40,
+    name: "TGD Far East Valley Zone",
+    miles: "28 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$50",
+    multiBin3Yd: 40,
     zips: ["90041","90042","90065","91011","91020","91030","91040","91042","91046","91101","91102","91103","91104","91105","91106","91107","91108","91201","91202","91203","91205","91206","91207","91208","91210","91214","91352","91381","91501","91502","91001"],
     pricing: [
       { bin: "3 Yard", cp: 313.04, ct: 0.8, rp: 313.04, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
@@ -131,7 +160,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD Beach Zone", miles: "35 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$200", dryRunSmAdj: "-$50", multiBin3Yd: 50,
+    name: "TGD Beach Zone",
+    miles: "35 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$200",
+    dryRunSmAdj: "-$50",
+    multiBin3Yd: 50,
     zips: ["90049","90263","90265","90272","91376"],
     pricing: [
       { bin: "3 Yard", cp: 359.56, ct: 0.8, rp: 359.56, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
@@ -145,7 +181,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD Far West Zone", miles: "34 mi", service: "In-House", hauler: "", phone: "", dryRunLg: "$200", dryRunSmAdj: "-$70", multiBin3Yd: 50,
+    name: "TGD Far West Zone",
+    miles: "34 mi",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$200",
+    dryRunSmAdj: "-$70",
+    multiBin3Yd: 50,
     zips: ["91320","91360","91361","91362","91377"],
     pricing: [
       { bin: "3 Yard", cp: 353.63, ct: 0.8, rp: 353.63, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 20 },
@@ -159,7 +202,14 @@ const ZONES = [
     ]
   },
   {
-    name: "TGD SCV Zone", miles: "N/A", service: "In-House", hauler: "", phone: "", dryRunLg: "$200", dryRunSmAdj: "-$150", multiBin3Yd: 75,
+    name: "TGD SCV Zone",
+    miles: "N/A",
+    service: "In-House",
+    hauler: "",
+    phone: "",
+    dryRunLg: "$200",
+    dryRunSmAdj: "-$150",
+    multiBin3Yd: 75,
     zips: ["91321","91350","91351","91355","91387"],
     pricing: [
       { bin: "3 Yard", cp: 480.80, ct: 0.8, rp: 480.80, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -172,9 +222,28 @@ const ZONES = [
       { bin: "40 Yard", cp: 950, ct: 3, rp: 900, rt: 1, days: 8, xtra: 40, over: "$110/Ton", disc: 0 },
     ]
   },
-  { name: "TGD Junk Removal ONLY", miles: "N/A", service: "Junk Removal Only", hauler: "", phone: "", dryRunLg: "", dryRunSmAdj: "", multiBin3Yd: null, zips: ["90066","90094","90230","90232"], pricing: [] },
   {
-    name: "Avel LA Zone 1", miles: "N/A", service: "Outsourced", hauler: "Avel Roll Off - Victor", phone: "310-353-6994", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "12 Yard: 16ft L x 7ft W x 3ft H",
+    name: "TGD Junk Removal ONLY",
+    miles: "N/A",
+    service: "Junk Removal Only",
+    hauler: "",
+    phone: "",
+    dryRunLg: "",
+    dryRunSmAdj: "",
+    multiBin3Yd: null,
+    zips: ["90066","90094","90230","90232"],
+    pricing: []
+  },
+  {
+    name: "Avel LA Zone 1",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Avel Roll Off - Victor",
+    phone: "310-353-6994",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "12 Yard: 16ft L x 7ft W x 3ft H",
     zips: ["90001","90002","90003","90007","90008","90011","90012","90013","90014","90015","90017","90018","90021","90022","90023","90033","90037","90040","90043","90044","90045","90047","90056","90058","90059","90061","90062","90063","90071","90079","90089","90090","90201","90220","90221","90222","90240","90241","90242","90245","90247","90248","90249","90250","90254","90255","90260","90262","90266","90270","90274","90277","90278","90280","90291","90292","90293","90301","90302","90303","90304","90305","90501","90502","90503","90504","90505","90506","90601","90602","90605","90606","90623","90640","90650","90660","90670","90701","90703","90706","90710","90712","90713","90715","90716","90717","90720","90723","90731","90732","90744","90745","90746","90747","90755","90802","90803","90804","90805","90806","90807","90808","90810","90813","90814","90815","90822","90831"],
     pricing: [
       { bin: "3 Yard", cp: 700, ct: 0.8, rp: 700, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -188,7 +257,15 @@ const ZONES = [
     ]
   },
   {
-    name: "Avel Anaheim Zone 2", miles: "N/A", service: "Outsourced", hauler: "Avel Roll Off - Victor", phone: "310-353-6994", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "12 Yard: 16ft L x 7ft W x 3ft H",
+    name: "Avel Anaheim Zone 2",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Avel Roll Off - Victor",
+    phone: "310-353-6994",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "12 Yard: 16ft L x 7ft W x 3ft H",
     zips: ["90603","90604","90620","90621","90631","90638","90680","90720","90740","90742","90743","91709","91745","91748","91765","91789","92626","92627","92646","92647","92648","92649","92655","92663","92683","92701","92703","92704","92705","92706","92707","92708","92780","92782","92801","92802","92804","92805","92806","92807","92821","92823","92831","92832","92833","92835","92840","92841","92843","92844","92845","92861","92865","92866","92867","92868","92869","92870","92886"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -201,7 +278,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 1050, ct: 3, rp: 1050, rt: 3, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
     ]
   },
-  { name: "Budget Zone 1", miles: "N/A", service: "Outsourced", hauler: "Budget Disposal - Craig/Ramiro", phone: "818-998-1700 / 818-510-9615", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "DELIVER UNMARKED 3YD WITH WHEELS ONLY",
+  {
+    name: "Budget Zone 1",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Budget Disposal - Craig/Ramiro",
+    phone: "818-998-1700 / 818-510-9615",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "DELIVER UNMARKED 3YD WITH WHEELS ONLY",
     zips: ["93021","93063","93064","93065"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -214,7 +300,15 @@ const ZONES = [
       { bin: "40 Yard", cp: 877, ct: 3, rp: 877, rt: 3, days: 8, xtra: 40, over: "$110/Ton", disc: 0 },
     ]
   },
-  { name: "Monarch Zone 1", miles: "N/A", service: "Outsourced", hauler: "Monarch - Larry", phone: "951-441-3619", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null,
+  {
+    name: "Monarch Zone 1",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Monarch - Larry",
+    phone: "951-441-3619",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
     zips: ["91752","92501","92503","92504","92505","92506","92507","92508","92509","92518","92530","92532","92536","92539","92543","92544","92545","92548","92549","92551","92553","92555","92557","92562","92563","92567","92570","92571","92582","92583","92584","92585","92586","92587","92590","92591","92592","92595","92596","92860","92879","92880","92881","92882","92883"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -227,7 +321,15 @@ const ZONES = [
       { bin: "40 Yard", cp: 965, ct: 3, rp: 965, rt: 3, days: 8, xtra: 40, over: "$110/Ton", disc: 0 },
     ]
   },
-  { name: "Red Box Zone 1", miles: "N/A", service: "Outsourced", hauler: "Red-Box - Kier", phone: "310-850-8430", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null,
+  {
+    name: "Red Box Zone 1",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Red-Box - Kier",
+    phone: "310-850-8430",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
     zips: ["90401","90402","90403","90404","90405"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -240,7 +342,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 970, ct: 3, rp: 970, rt: 3, days: 8, xtra: 40, over: "$110/Ton", disc: 0 },
     ]
   },
-  { name: "Rent A Bin Zone 2", miles: "N/A", service: "Outsourced", hauler: "Rent-A-Bin", phone: "818-709-5599", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "9 Yard: Offer 10yd Mini instead. Mini: 12ft L x 8ft W x 3ft H",
+  {
+    name: "Rent A Bin Zone 2",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Rent-A-Bin",
+    phone: "818-709-5599",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "9 Yard: Offer 10yd Mini instead. Mini: 12ft L x 8ft W x 3ft H",
     zips: ["91310","91354","91384","91390","93510"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -253,7 +364,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 1024, ct: 3, rp: 1024, rt: 3, days: 8, xtra: 40, over: "$110/Ton", disc: 0 },
     ]
   },
-  { name: "Heritage - SGV", miles: "N/A", service: "Outsourced", hauler: "Heritage Dumpster", phone: "951-441-2972", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "10 Yard Clean = 5-day rental only",
+  {
+    name: "Heritage - SGV",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Heritage Dumpster",
+    phone: "951-441-2972",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "10 Yard Clean = 5-day rental only",
     zips: ["91008","91010","91706","91722","91723","91724","91740","91741","91744","91746","91766","91767","91768","91773","91776","91780","91789","91790","91791","91792","91801","91803","90031","90032","91006","91007","91016","91731","91732","91733","91755","91770"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -266,7 +386,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 975, ct: 3, rp: 975, rt: 3, days: 8, xtra: 40, over: "$125/Ton", disc: 0 },
     ]
   },
-  { name: "Heritage - IE West", miles: "N/A", service: "Outsourced", hauler: "Heritage Dumpster", phone: "951-441-2972", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "10 Yard Clean = 5-day rental only",
+  {
+    name: "Heritage - IE West",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Heritage Dumpster",
+    phone: "951-441-2972",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "10 Yard Clean = 5-day rental only",
     zips: ["91701","91708","91710","91730","91737","91739","91761","91762","91763","91764","91784","91786","92335","92336","92337"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -279,7 +408,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 975, ct: 3, rp: 975, rt: 3, days: 8, xtra: 40, over: "$125/Ton", disc: 0 },
     ]
   },
-  { name: "Heritage - San Bernardino", miles: "N/A", service: "Outsourced", hauler: "Heritage Dumpster", phone: "951-441-2972", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "10 Yard Clean = 5-day rental only",
+  {
+    name: "Heritage - San Bernardino",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Heritage Dumpster",
+    phone: "951-441-2972",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "10 Yard Clean = 5-day rental only",
     zips: ["92313","92316","92324","92346","92354","92373","92374","92376","92377","92401","92404","92405","92408","92410","92411"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -292,7 +430,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 975, ct: 3, rp: 975, rt: 3, days: 8, xtra: 40, over: "$125/Ton", disc: 0 },
     ]
   },
-  { name: "Heritage - Banning/Beaumont", miles: "N/A", service: "Outsourced", hauler: "Heritage Dumpster", phone: "951-441-2972", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "10 Yard Clean = 5-day rental only",
+  {
+    name: "Heritage - Banning/Beaumont",
+    miles: "N/A",
+    service: "Outsourced",
+    hauler: "Heritage Dumpster",
+    phone: "951-441-2972",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "10 Yard Clean = 5-day rental only",
     zips: ["92220","92223","92230","92320","92399","92407"],
     pricing: [
       { bin: "10 Yard Clean", cp: 875, ct: 13, rp: 875, rt: 13, days: 5, xtra: 40, over: "$125/Ton", disc: 0 },
@@ -302,7 +449,16 @@ const ZONES = [
       { bin: "40 Yard", cp: 975, ct: 3, rp: 975, rt: 3, days: 8, xtra: 40, over: "$125/Ton", disc: 0 },
     ]
   },
-  { name: "Irvine / South Orange", miles: "N/A", service: "NEED HAULER", hauler: "TBD", phone: "", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "NO HAULER \u2014 Do NOT book without owner approval",
+  {
+    name: "Irvine / South Orange",
+    miles: "N/A",
+    service: "NEED HAULER",
+    hauler: "TBD",
+    phone: "",
+    dryRunLg: "$175",
+    dryRunSmAdj: "-$25",
+    multiBin3Yd: null,
+    notes: "NO HAULER \u2014 Do NOT book without owner approval",
     zips: ["92602","92603","92604","92606","92610","92612","92614","92617","92618","92653","92675","92676","92677","92678","92679","92688","92691","92692","92694","92782","92808"],
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
@@ -321,9 +477,6 @@ const ZIP_MAP = {};
 ZONES.forEach(z => z.zips.forEach(zip => { ZIP_MAP[zip] = z; }));
 const fmt = (v) => v === null ? null : "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#fff", fontSize: 14, fontFamily: "'Segoe UI', sans-serif", outline: "none", boxSizing: "border-box" };
-const labelStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#4a6b4a", marginBottom: 5, display: "block" };
-
 function InfoChip({ label, value }) {
   return React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 10, background: "#121e12", border: "1px solid #2d3d2d" } },
     React.createElement("span", { style: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4a6b4a" } }, label),
@@ -332,61 +485,151 @@ function InfoChip({ label, value }) {
 }
 
 function DiscountPanel({ zone, tab }) {
-  const [show, setShow] = useState(false);
+  const [showDiscounted, setShowDiscounted] = useState(false);
   const isInHouse = zone.service === "In-House";
-  const hasAnyDisc = isInHouse && zone.pricing.some(p => p.disc > 0);
-  const hasMulti = isInHouse && zone.multiBin3Yd > 0;
-  const hasDis = hasAnyDisc || hasMulti;
+  const hasAnyDiscount = isInHouse && zone.pricing.some(p => p.disc > 0);
+  const hasMultiBin = isInHouse && zone.multiBin3Yd !== null && zone.multiBin3Yd > 0;
+  const hasDiscounts = hasAnyDiscount || hasMultiBin;
 
   return React.createElement("div", { style: { marginTop: 16, marginBottom: 4 } },
-    React.createElement("div", { style: { background: hasDis ? "linear-gradient(135deg,#1a2e1a,#1e3a1e)" : "linear-gradient(135deg,#2a1a1a,#1e1616)", borderRadius: 14, border: hasDis ? "1px solid #2d4a2d" : "1px solid #3d2d2d", overflow: "hidden" } },
-      React.createElement("button", { onClick: () => setShow(!show), style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "none", border: "none", cursor: "pointer", color: "#fff" } },
+    React.createElement("div", { style: { 
+      background: hasDiscounts ? "linear-gradient(135deg, #1a2e1a, #1e3a1e)" : "linear-gradient(135deg, #2a1a1a, #1e1616)", 
+      borderRadius: 14, 
+      border: hasDiscounts ? "1px solid #2d4a2d" : "1px solid #3d2d2d",
+      overflow: "hidden"
+    } },
+      React.createElement("button", { 
+        onClick: () => setShowDiscounted(!showDiscounted),
+        style: { 
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 18px", background: "none", border: "none", cursor: "pointer", color: "#fff"
+        }
+      },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-          React.createElement("div", { style: { width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, background: hasDis ? "linear-gradient(135deg,#22c55e,#16a34a)" : "linear-gradient(135deg,#ef4444,#dc2626)" } }, hasDis ? "\uD83C\uDFF7\uFE0F" : "\uD83D\uDEAB"),
-          React.createElement("span", { style: { fontSize: 14, fontWeight: 700 } }, hasDis ? "Discounts Available" : (isInHouse ? "No Discounts This Zone" : "No Discounts \u2014 Outsourced Zone"))
+          React.createElement("div", { style: { 
+            width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+            background: hasDiscounts ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)"
+          } }, hasDiscounts ? "\uD83C\uDFF7\uFE0F" : "\uD83D\uDEAB"),
+          React.createElement("span", { style: { fontSize: 14, fontWeight: 700, letterSpacing: 0.5 } }, 
+            hasDiscounts ? "Discounts Available" : (isInHouse ? "No Discounts This Zone" : "No Discounts \u2014 Outsourced Zone")
+          )
         ),
-        React.createElement("span", { style: { fontSize: 18, color: "#6b8f6b", transition: "transform 0.2s", transform: show ? "rotate(180deg)" : "rotate(0)" } }, "\u25BE")
+        React.createElement("span", { style: { 
+          fontSize: 18, color: "#6b8f6b", transition: "transform 0.2s ease",
+          transform: showDiscounted ? "rotate(180deg)" : "rotate(0deg)"
+        } }, "\u25BE")
       ),
-      show && React.createElement("div", { style: { padding: "0 18px 18px", animation: "slideDown 0.3s ease" } },
-        React.createElement("div", { style: { height: 1, background: hasDis ? "#2d4a2d" : "#3d2d2d", marginBottom: 16 } }),
-        hasDis ? React.createElement(React.Fragment, null,
-          isInHouse && React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", marginBottom: 8, borderRadius: 10, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.12)" } },
+
+      showDiscounted && React.createElement("div", { style: { 
+        padding: "0 18px 18px", animation: "slideDown 0.3s ease"
+      } },
+        React.createElement("div", { style: { height: 1, background: hasDiscounts ? "#2d4a2d" : "#3d2d2d", marginBottom: 16 } }),
+
+        hasDiscounts ? React.createElement(React.Fragment, null,
+          // Extended rental days
+          isInHouse && React.createElement("div", { style: { 
+            display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", marginBottom: 8,
+            borderRadius: 10, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.12)"
+          } },
             React.createElement("span", { style: { fontSize: 20, lineHeight: 1 } }, "\uD83D\uDCC5"),
-            React.createElement("div", null, React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#d1e7d1", marginBottom: 2 } }, "Extended Rental"), React.createElement("div", { style: { fontSize: 12, color: "#86a086" } }, "Up to 2 free extra days beyond standard rental period"))
+            React.createElement("div", null,
+              React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#d1e7d1", marginBottom: 2 } }, "Extended Rental"),
+              React.createElement("div", { style: { fontSize: 12, color: "#86a086", lineHeight: 1.4 } }, "Up to 2 free extra days beyond standard rental period")
+            )
           ),
-          hasMulti && React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", marginBottom: 8, borderRadius: 10, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)" } },
+
+          // Multi-bin 3 Yard deal
+          hasMultiBin && React.createElement("div", { style: { 
+            display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", marginBottom: 8,
+            borderRadius: 10, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)"
+          } },
             React.createElement("span", { style: { fontSize: 20, lineHeight: 1 } }, "\uD83D\uDCE6"),
-            React.createElement("div", null, React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#93c5fd", marginBottom: 2 } }, "Multi-Bin 3 Yard Deal"), React.createElement("div", { style: { fontSize: 12, color: "#7da0c4" } }, "Customer rents 2x 3 Yard bins \u2192 $" + zone.multiBin3Yd + " off each bin"), React.createElement("div", { style: { fontSize: 11, color: "#5a7a9a", marginTop: 4, fontStyle: "italic" } }, "\u26A0 Both bins must be delivered and removed at the same time"))
+            React.createElement("div", null,
+              React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#93c5fd", marginBottom: 2 } }, "Multi-Bin 3 Yard Deal"),
+              React.createElement("div", { style: { fontSize: 12, color: "#7da0c4", lineHeight: 1.4 } }, 
+                "Customer rents 2x 3 Yard bins \u2192 $" + zone.multiBin3Yd + " off each bin"),
+              React.createElement("div", { style: { fontSize: 11, color: "#5a7a9a", marginTop: 4, fontStyle: "italic" } }, 
+                "\u26A0 Both bins must be delivered and removed at the same time")
+            )
           ),
-          hasAnyDisc && React.createElement("div", { style: { marginTop: 8, padding: "12px 14px", borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px dashed rgba(34,197,94,0.25)" } },
-            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4ade80", marginBottom: 10 } }, "\uD83D\uDCA1 Max Discounted Prices Per Bin"),
+
+          // Per-bin discount table
+          hasAnyDiscount && React.createElement("div", { style: { 
+            marginTop: 8, padding: "12px 14px", borderRadius: 10, 
+            background: "rgba(34,197,94,0.08)", border: "1px dashed rgba(34,197,94,0.25)"
+          } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4ade80", marginBottom: 10 } }, 
+              "\uD83D\uDCA1 Max Discounted Prices Per Bin"
+            ),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
-              zone.pricing.filter(p => { const pr = tab === "residential" ? p.rp : p.cp; return pr !== null && p.disc > 0; }).map((p, i) => {
-                const orig = tab === "residential" ? p.rp : p.cp;
-                return React.createElement("div", { key: i, style: { flex: "1 1 auto", minWidth: 130, padding: "8px 10px", borderRadius: 8, background: "#0d180d", border: "1px solid #1e2e1e", textAlign: "center" } },
+              zone.pricing.filter(p => {
+                const price = (tab === "residential") ? p.rp : p.cp;
+                return price !== null && p.disc > 0;
+              }).map((p, i) => {
+                const original = (tab === "residential") ? p.rp : p.cp;
+                const discounted = original - p.disc;
+                return React.createElement("div", { key: i, style: { 
+                  flex: "1 1 auto", minWidth: 130, padding: "8px 10px", borderRadius: 8,
+                  background: "#0d180d", border: "1px solid #1e2e1e", textAlign: "center"
+                } },
                   React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#6b8f6b", marginBottom: 3 } }, p.bin),
                   React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 } },
-                    React.createElement("span", { style: { fontSize: 11, color: "#4a4a4a", textDecoration: "line-through" } }, fmt(orig)),
-                    React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#4ade80" } }, fmt(orig - p.disc))
+                    React.createElement("span", { style: { fontSize: 11, color: "#4a4a4a", textDecoration: "line-through" } }, fmt(original)),
+                    React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#4ade80" } }, fmt(discounted))
                   ),
                   React.createElement("div", { style: { fontSize: 9, color: "#3d6a3d", marginTop: 2 } }, "-$" + p.disc + " max")
                 );
               })
             )
           ),
-          React.createElement("div", { style: { marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.15)", fontSize: 12, fontWeight: 600, color: "#fde68a", display: "flex", alignItems: "center", gap: 8 } }, React.createElement("span", { style: { fontSize: 16 } }, "\u26A0\uFE0F"), "Anything beyond these limits \u2192 Check with Manager"),
-          React.createElement("div", { style: { marginTop: 8, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", fontSize: 12, fontWeight: 700, color: "#fca5a5", display: "flex", alignItems: "flex-start", gap: 10, lineHeight: 1.5 } },
+
+          // Check with manager + closing tool reminder
+          React.createElement("div", { style: { 
+            marginTop: 12, padding: "10px 14px", borderRadius: 10, 
+            background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.15)",
+            fontSize: 12, fontWeight: 600, color: "#fde68a", display: "flex", alignItems: "center", gap: 8
+          } }, 
+            React.createElement("span", { style: { fontSize: 16 } }, "\u26A0\uFE0F"),
+            "Anything beyond these limits \u2192 Check with Manager"
+          ),
+
+          React.createElement("div", { style: { 
+            marginTop: 8, padding: "12px 14px", borderRadius: 10, 
+            background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)",
+            fontSize: 12, fontWeight: 700, color: "#fca5a5", display: "flex", alignItems: "flex-start", gap: 10,
+            lineHeight: 1.5
+          } }, 
             React.createElement("span", { style: { fontSize: 18, lineHeight: 1 } }, "\uD83D\uDED1"),
-            React.createElement("div", null, React.createElement("div", { style: { marginBottom: 2 } }, "Discounts are a closing tool, not an opener."), React.createElement("div", { style: { color: "#d49a9a", fontWeight: 600 } }, "Only offer if the customer is hesitant to book at listed price. Never lead with a discount."))
+            React.createElement("div", null,
+              React.createElement("div", { style: { marginBottom: 2 } }, "Discounts are a closing tool, not an opener."),
+              React.createElement("div", { style: { color: "#d49a9a", fontWeight: 600 } }, "Only offer if the customer is hesitant to book at listed price. Never lead with a discount.")
+            )
           )
-        ) : React.createElement("div", { style: { padding: "16px 14px", borderRadius: 10, textAlign: "center", background: isInHouse ? "rgba(250,204,21,0.06)" : "rgba(239,68,68,0.06)", border: isInHouse ? "1px solid rgba(250,204,21,0.15)" : "1px solid rgba(239,68,68,0.15)" } },
+
+        ) : React.createElement("div", { style: { 
+          padding: "16px 14px", borderRadius: 10, textAlign: "center",
+          background: isInHouse ? "rgba(250,204,21,0.06)" : "rgba(239,68,68,0.06)", 
+          border: isInHouse ? "1px solid rgba(250,204,21,0.15)" : "1px solid rgba(239,68,68,0.15)"
+        } },
           React.createElement("div", { style: { fontSize: 28, marginBottom: 8 } }, isInHouse ? "\u26A0\uFE0F" : "\uD83D\uDEAB"),
           React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: isInHouse ? "#fde68a" : "#fca5a5", marginBottom: 4 } }, "No Discounts Available"),
-          React.createElement("div", { style: { fontSize: 12, color: isInHouse ? "#b0a060" : "#a08686", lineHeight: 1.5 } }, isInHouse ? "No per-bin discounts for this zone. All discount requests \u2192 Check with Manager" : "No discounts available for outsourced zones. All discount requests \u2192 Check with Manager"),
-          (isInHouse && zone.multiBin3Yd > 0) && React.createElement("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 10, textAlign: "left", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)" } },
+          React.createElement("div", { style: { fontSize: 12, color: isInHouse ? "#b0a060" : "#a08686", lineHeight: 1.5 } }, 
+            isInHouse ? "No per-bin discounts for this zone. All discount requests \u2192 Check with Manager" : "No discounts available for outsourced zones. All discount requests \u2192 Check with Manager"),
+
+          // Still show multi-bin if SCV
+          hasMultiBin && React.createElement("div", { style: { 
+            marginTop: 12, padding: "12px 14px", borderRadius: 10, textAlign: "left",
+            background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)"
+          } },
             React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 10 } },
               React.createElement("span", { style: { fontSize: 20, lineHeight: 1 } }, "\uD83D\uDCE6"),
-              React.createElement("div", null, React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#93c5fd", marginBottom: 2 } }, "Exception: Multi-Bin 3 Yard Deal"), React.createElement("div", { style: { fontSize: 12, color: "#7da0c4" } }, "Customer rents 2x 3 Yard bins \u2192 $" + zone.multiBin3Yd + " off each bin"), React.createElement("div", { style: { fontSize: 11, color: "#5a7a9a", marginTop: 4, fontStyle: "italic" } }, "\u26A0 Both bins must be delivered and removed at the same time"))
+              React.createElement("div", null,
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#93c5fd", marginBottom: 2 } }, "Exception: Multi-Bin 3 Yard Deal"),
+                React.createElement("div", { style: { fontSize: 12, color: "#7da0c4", lineHeight: 1.4 } }, 
+                  "Customer rents 2x 3 Yard bins \u2192 $" + zone.multiBin3Yd + " off each bin"),
+                React.createElement("div", { style: { fontSize: 11, color: "#5a7a9a", marginTop: 4, fontStyle: "italic" } }, 
+                  "\u26A0 Both bins must be delivered and removed at the same time")
+              )
             )
           )
         )
@@ -395,111 +638,148 @@ function DiscountPanel({ zone, tab }) {
   );
 }
 
-function QuoteBuilder({ zone, tab, matchedZip, onClose }) {
-  const [csrName, setCsrName] = useState("");
-  const [custName, setCustName] = useState("");
-  const [custPhone, setCustPhone] = useState("");
-  const [custEmail, setCustEmail] = useState("");
-  const [selectedBins, setSelectedBins] = useState({});
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
-  const availableBins = zone.pricing.filter(p => (tab === "residential" ? p.rp : p.cp) !== null);
-  const toggleBin = (binName) => { setSelectedBins(prev => { const next = { ...prev }; if (next[binName]) { delete next[binName]; } else { const p = zone.pricing.find(x => x.bin === binName); const base = tab === "residential" ? p.rp : p.cp; next[binName] = { basePrice: base, discount: 0, maxDisc: p.disc, finalPrice: base, tons: tab === "residential" ? p.rt : p.ct, days: p.days, xtra: p.xtra, over: p.over }; } return next; }); };
-  const setDiscount = (binName, val) => { const num = Math.min(Math.max(0, parseInt(val) || 0), selectedBins[binName].maxDisc); setSelectedBins(prev => ({ ...prev, [binName]: { ...prev[binName], discount: num, finalPrice: prev[binName].basePrice - num } })); };
-  const totalQuote = Object.values(selectedBins).reduce((s, b) => s + b.finalPrice, 0);
-  const binCount = Object.keys(selectedBins).length;
-  const canSend = csrName && custName && custPhone && binCount > 0;
-  const handleSend = async () => { if (!canSend) return; setSending(true); setError(""); const binEntries = Object.entries(selectedBins); const flatBins = {}; binEntries.forEach(([bin, info], i) => { const n = i + 1; flatBins["bin_" + n + "_size"] = bin; flatBins["bin_" + n + "_base_price"] = info.basePrice.toFixed(2); flatBins["bin_" + n + "_discount"] = info.discount.toFixed(2); flatBins["bin_" + n + "_final_price"] = info.finalPrice.toFixed(2); flatBins["bin_" + n + "_tons"] = info.tons; flatBins["bin_" + n + "_rental_days"] = info.days; flatBins["bin_" + n + "_extra_day_fee"] = info.xtra; flatBins["bin_" + n + "_overload_rate"] = info.over; }); const payload = { csr_name: csrName, csr_email: CSR_EMAILS[csrName] || "office@thegreendumpster.com", customer_name: custName, customer_phone: custPhone, customer_email: custEmail, zip_code: matchedZip, zone_name: zone.name, customer_type: tab === "residential" ? "Residential" : "Contractor", bin_count: binEntries.length, ...flatBins, total_quote: totalQuote.toFixed(2), company_name: COMPANY_NAME, company_phone: COMPANY_PHONE, company_email: COMPANY_EMAIL, timestamp: new Date().toISOString() }; try { if (GHL_WEBHOOK_URL && GHL_WEBHOOK_URL !== "YOUR_GHL_WEBHOOK_URL_HERE") { await fetch(GHL_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); } setSent(true); } catch (err) { setError("Failed to send. Check webhook URL."); } setSending(false); };
-  if (sent) { return React.createElement("div", { style: { marginTop: 16, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" } }, React.createElement("div", { style: { fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" } }, "\u2705"), React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 } }, "Quote Sent!"), React.createElement("div", { style: { fontSize: 13, color: "#86a086", marginBottom: 4 } }, "Sent to " + custName + " via Email & SMS"), React.createElement("div", { style: { fontSize: 12, color: "#4a6b4a", marginBottom: 20 } }, binCount + " bin(s) \u2022 " + fmt(totalQuote) + " total \u2022 CSR: " + csrName), React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "center" } }, React.createElement("button", { onClick: () => { setSent(false); setCustName(""); setCustPhone(""); setCustEmail(""); setSelectedBins({}); }, style: { padding: "10px 20px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", color: "#4ade80", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "New Quote"), React.createElement("button", { onClick: onClose, style: { padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "Back to Pricing"))); }
-  return React.createElement("div", { style: { marginTop: 16, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", overflow: "hidden", animation: "slideIn 0.3s ease" } }, React.createElement("div", { style: { padding: "16px 20px", background: "linear-gradient(135deg,#22c55e15,#16a34a10)", borderBottom: "1px solid #2d4a2d", display: "flex", alignItems: "center", justifyContent: "space-between" } }, React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, React.createElement("div", { style: { width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 } }, "\uD83D\uDCDD"), React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#fff" } }, "Build Quote")), React.createElement("button", { onClick: onClose, style: { background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 30, height: 30, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")), React.createElement("div", { style: { padding: 20 } }, React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 } }, React.createElement("div", null, React.createElement("label", { style: labelStyle }, "CSR Name"), React.createElement("select", { value: csrName, onChange: e => setCsrName(e.target.value), style: { ...inputStyle, cursor: "pointer", appearance: "auto" } }, React.createElement("option", { value: "" }, "Select CSR..."), CSR_NAMES.map(n => React.createElement("option", { key: n, value: n }, n)))), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Type"), React.createElement("div", { style: { padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#4ade80", fontSize: 14, fontWeight: 700 } }, tab === "residential" ? "Residential" : "Contractor"))), React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 } }, React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Customer Name"), React.createElement("input", { value: custName, onChange: e => setCustName(e.target.value), placeholder: "John Smith", style: inputStyle })), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Phone"), React.createElement("input", { value: custPhone, onChange: e => setCustPhone(e.target.value), placeholder: "(818) 555-1234", type: "tel", style: inputStyle })), React.createElement("div", null, React.createElement("label", { style: labelStyle }, "Email"), React.createElement("input", { value: custEmail, onChange: e => setCustEmail(e.target.value), placeholder: "john@email.com", type: "email", style: inputStyle }))), React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Select Bin Size(s)"), React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 } }, availableBins.map(p => { const price = tab === "residential" ? p.rp : p.cp; const sel = !!selectedBins[p.bin]; return React.createElement("button", { key: p.bin, onClick: () => toggleBin(p.bin), style: { padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.15s", background: sel ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: sel ? "2px solid #4ade80" : "1px solid #2d4a2d", color: sel ? "#fff" : "#86a086" } }, p.bin + " \u2022 " + fmt(price)); })), binCount > 0 && React.createElement("div", { style: { marginBottom: 16 } }, React.createElement("label", { style: { ...labelStyle, marginBottom: 10 } }, "Quote Details"), Object.entries(selectedBins).map(([binName, info]) => React.createElement("div", { key: binName, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" } }, React.createElement("div", { style: { flex: 1 } }, React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#d1e7d1" } }, binName), React.createElement("div", { style: { fontSize: 11, color: "#4a6b4a" } }, info.tons + "T \u2022 " + info.days + " days \u2022 $" + info.xtra + "/xtra day")), info.maxDisc > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, React.createElement("span", { style: { fontSize: 10, color: "#6b8f6b" } }, "Disc:"), React.createElement("select", { value: info.discount, onChange: e => setDiscount(binName, e.target.value), style: { padding: "4px 8px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: info.discount > 0 ? "#f59e0b" : "#6b8f6b", fontSize: 12, fontWeight: 700, cursor: "pointer", appearance: "auto" } }, React.createElement("option", { value: 0 }, "$0"), Array.from({ length: Math.floor(info.maxDisc / 5) }, (_, i) => (i + 1) * 5).map(v => React.createElement("option", { key: v, value: v }, "-$" + v)))), React.createElement("div", { style: { textAlign: "right", minWidth: 80 } }, info.discount > 0 && React.createElement("div", { style: { fontSize: 10, color: "#4a4a4a", textDecoration: "line-through" } }, fmt(info.basePrice)), React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: info.discount > 0 ? "#f59e0b" : "#4ade80" } }, fmt(info.finalPrice))))), React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" } }, React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#86a086" } }, "Quote Total (" + binCount + " bin" + (binCount > 1 ? "s" : "") + ")"), React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" } }, fmt(totalQuote)))), error && React.createElement("div", { style: { padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600, marginBottom: 12 } }, "\u26A0 " + error), React.createElement("button", { onClick: handleSend, disabled: !canSend || sending, style: { width: "100%", padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && !sending ? "pointer" : "not-allowed", background: canSend && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, transition: "all 0.2s", boxShadow: canSend ? "0 4px 20px rgba(245,158,11,0.2)" : "none" } }, sending ? "Sending..." : custEmail ? "\uD83D\uDCE8 Send Quote via Email & SMS" : "\uD83D\uDCE8 Send Quote via SMS"), !canSend && !sending && React.createElement("div", { style: { textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" } }, !csrName ? "Select your name" : !custName ? "Enter customer name" : !custPhone ? "Enter phone number" : "Select at least one bin")));
-}
-
 function App() {
   const [query, setQuery] = useState("");
   const [zone, setZone] = useState(null);
   const [matchedZip, setMatchedZip] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [tab, setTab] = useState("contractor");
-  const [showQB, setShowQB] = useState(false);
   const inputRef = useRef(null);
+
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
-  const handleSearch = (val) => { setQuery(val); setShowQB(false); const c = val.trim(); if (c.length === 5 && /^\d{5}$/.test(c)) { const f = ZIP_MAP[c]; if (f) { setZone(f); setMatchedZip(c); setNotFound(false); } else { setZone(null); setMatchedZip(""); setNotFound(true); } } else { setZone(null); setMatchedZip(""); setNotFound(false); } };
-  const handleClear = () => { setQuery(""); setZone(null); setMatchedZip(""); setNotFound(false); setShowQB(false); inputRef.current && inputRef.current.focus(); };
+
+  const handleSearch = (val) => {
+    setQuery(val);
+    const clean = val.trim();
+    if (clean.length === 5 && /^\d{5}$/.test(clean)) {
+      const found = ZIP_MAP[clean];
+      if (found) { setZone(found); setMatchedZip(clean); setNotFound(false); }
+      else { setZone(null); setMatchedZip(""); setNotFound(true); }
+    } else { setZone(null); setMatchedZip(""); setNotFound(false); }
+  };
+
+  const handleClear = () => { setQuery(""); setZone(null); setMatchedZip(""); setNotFound(false); inputRef.current && inputRef.current.focus(); };
+
   const serviceBg = zone && zone.service === "In-House" ? "#14532d" : zone && zone.service === "Outsourced" ? "#7c2d12" : zone && zone.service === "NEED HAULER" ? "#7f1d1d" : "#1e3a2e";
+
   const th = { padding: "12px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b8f6b", borderBottom: "2px solid #2d4a2d" };
   const td = { padding: "11px 10px", textAlign: "center", color: "#a7c4a7" };
 
-  return React.createElement("div", { style: { minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8", padding: 0, overflow: "auto" } },
-    React.createElement("div", { style: { position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" } }),
+  return React.createElement("div", { style: { minHeight: "100vh", background: "linear-gradient(145deg, #0a0f0a 0%, #0d1a0d 40%, #111b11 100%)", fontFamily: "'Segoe UI', -apple-system, sans-serif", color: "#e8efe8", padding: 0, overflow: "auto" } },
+    React.createElement("div", { style: { position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 39px, #4ade80 39px, #4ade80 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, #4ade80 39px, #4ade80 40px)" } }),
+
     React.createElement("div", { style: { position: "relative", maxWidth: 880, margin: "0 auto", padding: "32px 20px 60px" } },
+
+      // Header
       React.createElement("div", { style: { textAlign: "center", marginBottom: 36 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 } },
-          React.createElement("div", { style: { width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, "\u267B"),
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#4ade80" } }, "The Green Dumpster")),
+          React.createElement("div", { style: { width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #22c55e, #16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, "\u267B"),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "#4ade80" } }, "The Green Dumpster")
+        ),
         React.createElement("h1", { style: { fontSize: 28, fontWeight: 800, margin: "4px 0 4px", color: "#fff", letterSpacing: -0.5 } }, "Pricing Lookup"),
-        React.createElement("p", { style: { fontSize: 13, color: "#6b8f6b", margin: 0 } }, "Type a 5-digit zip code to instantly see zone pricing")),
+        React.createElement("p", { style: { fontSize: 13, color: "#6b8f6b", margin: 0 } }, "Type a 5-digit zip code to instantly see zone pricing")
+      ),
+
+      // Search
       React.createElement("div", { style: { position: "relative", maxWidth: 440, margin: "0 auto 32px" } },
-        React.createElement("div", { style: { position: "relative", background: "linear-gradient(135deg,#1a2e1a,#162016)", borderRadius: 16, border: zone ? "2px solid #22c55e" : notFound ? "2px solid #ef4444" : "2px solid #2d4a2d", boxShadow: zone ? "0 0 30px rgba(34,197,94,0.15)" : "none", transition: "all 0.3s" } },
+        React.createElement("div", { style: { position: "relative", background: "linear-gradient(135deg, #1a2e1a, #162016)", borderRadius: 16, border: zone ? "2px solid #22c55e" : notFound ? "2px solid #ef4444" : "2px solid #2d4a2d", boxShadow: zone ? "0 0 30px rgba(34,197,94,0.15)" : "none", transition: "all 0.3s ease" } },
           React.createElement("div", { style: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: zone ? "#22c55e" : notFound ? "#ef4444" : "#4a6b4a", fontSize: 20 } }, zone ? "\u2713" : notFound ? "\u2715" : "\u2315"),
-          React.createElement("input", { ref: inputRef, type: "text", value: query, onChange: e => handleSearch(e.target.value), placeholder: "Enter zip code...", maxLength: 5, inputMode: "numeric", style: { width: "100%", boxSizing: "border-box", padding: "18px 50px 18px 48px", fontSize: 22, fontWeight: 700, fontFamily: "'SF Mono','Consolas',monospace", letterSpacing: 6, background: "transparent", border: "none", outline: "none", color: "#fff", textAlign: "center" } }),
-          query && React.createElement("button", { onClick: handleClear, style: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")),
-        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area")),
+          React.createElement("input", { ref: inputRef, type: "text", value: query, onChange: e => handleSearch(e.target.value), placeholder: "Enter zip code...", maxLength: 5, inputMode: "numeric", style: { width: "100%", boxSizing: "border-box", padding: "18px 50px 18px 48px", fontSize: 22, fontWeight: 700, fontFamily: "'SF Mono', 'Consolas', monospace", letterSpacing: 6, background: "transparent", border: "none", outline: "none", color: "#fff", textAlign: "center" } }),
+          query && React.createElement("button", { onClick: handleClear, style: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")
+        ),
+        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area")
+      ),
+
+      // Results
       zone && React.createElement("div", { style: { animation: "fadeSlide 0.35s ease" } },
-        React.createElement("div", { style: { background: "linear-gradient(135deg,#1a2e1a 0%,#162016 100%)", borderRadius: 16, border: "1px solid #2d4a2d", padding: 24, marginBottom: 20 } },
+        // Zone header card
+        React.createElement("div", { style: { background: "linear-gradient(135deg, #1a2e1a 0%, #162016 100%)", borderRadius: 16, border: "1px solid #2d4a2d", padding: 24, marginBottom: 20 } },
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16 } },
             React.createElement("div", null,
-              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } }, React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: "#fff" } }, zone.name)),
+              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
+                React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: "#fff" } }, zone.name)
+              ),
               React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
                 React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: serviceBg, color: "#fff", border: "1px solid " + (zone.service === "In-House" ? "#22c55e33" : zone.service === "NEED HAULER" ? "#ef444433" : "#f9731633") } }, zone.service),
                 React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#4ade80", border: "1px solid #2d4a2d" } }, "ZIP: " + matchedZip),
-                zone.miles !== "N/A" && React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#86efac", border: "1px solid #2d4a2d" } }, zone.miles + " from yard"))),
+                zone.miles !== "N/A" && React.createElement("span", { style: { display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "#1e2d1e", color: "#86efac", border: "1px solid #2d4a2d" } }, zone.miles + " from yard")
+              )
+            ),
             React.createElement("div", { style: { textAlign: "right" } },
               zone.hauler && React.createElement("div", { style: { fontSize: 13, color: "#a7c4a7", marginBottom: 2 } }, React.createElement("span", { style: { fontWeight: 700, color: "#d1e7d1" } }, zone.hauler)),
-              zone.phone && React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" } }, zone.phone))),
+              zone.phone && React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" } }, zone.phone)
+            )
+          ),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 } },
             zone.dryRunLg && React.createElement(InfoChip, { label: "Dry Run (Lg)", value: zone.dryRunLg }),
-            zone.dryRunSmAdj && React.createElement(InfoChip, { label: "Sm Truck Adj", value: zone.dryRunSmAdj })),
-          zone.notes && React.createElement("div", { style: { marginTop: 14, padding: "10px 14px", borderRadius: 10, background: zone.service === "NEED HAULER" ? "rgba(239,68,68,0.1)" : "rgba(250,204,21,0.08)", border: zone.service === "NEED HAULER" ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(250,204,21,0.2)", fontSize: 12, fontWeight: 600, color: zone.service === "NEED HAULER" ? "#fca5a5" : "#fde68a" } }, "\u26A0 " + zone.notes)),
+            zone.dryRunSmAdj && React.createElement(InfoChip, { label: "Sm Truck Adj", value: zone.dryRunSmAdj })
+          ),
+          zone.notes && React.createElement("div", { style: { marginTop: 14, padding: "10px 14px", borderRadius: 10, background: zone.service === "NEED HAULER" ? "rgba(239,68,68,0.1)" : "rgba(250,204,21,0.08)", border: zone.service === "NEED HAULER" ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(250,204,21,0.2)", fontSize: 12, fontWeight: 600, color: zone.service === "NEED HAULER" ? "#fca5a5" : "#fde68a" } }, "\u26A0 " + zone.notes)
+        ),
+
+        // Tabs + table
         zone.pricing.length > 0 && React.createElement(React.Fragment, null,
           React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 16, background: "#121e12", borderRadius: 12, padding: 4 } },
-            ["contractor", "residential", "both"].map(t => React.createElement("button", { key: t, onClick: () => { setTab(t); setShowQB(false); }, style: { flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, background: tab === t ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: tab === t ? "#fff" : "#4a6b4a", transition: "all 0.2s" } }, t === "both" ? "Side by Side" : t))),
+            ["contractor", "residential", "both"].map(t =>
+              React.createElement("button", { key: t, onClick: () => setTab(t), style: { flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, background: tab === t ? "linear-gradient(135deg, #22c55e, #16a34a)" : "transparent", color: tab === t ? "#fff" : "#4a6b4a", transition: "all 0.2s ease" } }, t === "both" ? "Side by Side" : t)
+            )
+          ),
           React.createElement("div", { style: { borderRadius: 16, overflow: "hidden", border: "1px solid #2d4a2d" } },
             React.createElement("div", { style: { overflowX: "auto" } },
               React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 13 } },
                 React.createElement("thead", null,
-                  React.createElement("tr", { style: { background: "linear-gradient(135deg,#1a2e1a,#162016)" } },
-                    React.createElement("th", { style: { ...th, textAlign: "left", paddingLeft: 18 } }, "Bin Size"),
+                  React.createElement("tr", { style: { background: "linear-gradient(135deg, #1a2e1a, #162016)" } },
+                    React.createElement("th", { style: Object.assign({}, th, { textAlign: "left", paddingLeft: 18 }) }, "Bin Size"),
                     (tab === "contractor" || tab === "both") && React.createElement("th", { style: th }, "Contractor $"),
                     (tab === "contractor" || tab === "both") && React.createElement("th", { style: th }, "Tons"),
                     (tab === "residential" || tab === "both") && React.createElement("th", { style: th }, "Residential $"),
                     (tab === "residential" || tab === "both") && React.createElement("th", { style: th }, "Tons"),
                     React.createElement("th", { style: th }, "Days"),
                     React.createElement("th", { style: th }, "Xtra/Day"),
-                    React.createElement("th", { style: th }, "Overload"))),
+                    React.createElement("th", { style: th }, "Overload")
+                  )
+                ),
                 React.createElement("tbody", null,
                   zone.pricing.filter(p => p.cp !== null || p.rp !== null).map((p, i) =>
                     React.createElement("tr", { key: i, style: { background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)", borderBottom: "1px solid #1e2e1e" } },
-                      React.createElement("td", { style: { ...td, textAlign: "left", paddingLeft: 18, fontWeight: 700, color: "#d1e7d1" } }, p.bin),
-                      (tab === "contractor" || tab === "both") && React.createElement("td", { style: { ...td, fontWeight: 800, fontSize: 15, color: p.cp !== null ? "#4ade80" : "#4a4a4a" } }, p.cp !== null ? fmt(p.cp) : "N/A"),
+                      React.createElement("td", { style: Object.assign({}, td, { textAlign: "left", paddingLeft: 18, fontWeight: 700, color: "#d1e7d1" }) }, p.bin),
+                      (tab === "contractor" || tab === "both") && React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800, fontSize: 15, color: p.cp !== null ? "#4ade80" : "#4a4a4a" }) }, p.cp !== null ? fmt(p.cp) : "N/A"),
                       (tab === "contractor" || tab === "both") && React.createElement("td", { style: td }, p.ct),
-                      (tab === "residential" || tab === "both") && React.createElement("td", { style: { ...td, fontWeight: 800, fontSize: 15, color: p.rp !== null ? "#86efac" : "#4a4a4a" } }, p.rp !== null ? fmt(p.rp) : "N/A"),
+                      (tab === "residential" || tab === "both") && React.createElement("td", { style: Object.assign({}, td, { fontWeight: 800, fontSize: 15, color: p.rp !== null ? "#86efac" : "#4a4a4a" }) }, p.rp !== null ? fmt(p.rp) : "N/A"),
                       (tab === "residential" || tab === "both") && React.createElement("td", { style: td }, p.rt),
                       React.createElement("td", { style: td }, p.days),
                       React.createElement("td", { style: td }, "$" + p.xtra),
-                      React.createElement("td", { style: { ...td, fontSize: 11, color: "#86a086" } }, p.over)))))),
-          !showQB && tab !== "both" && React.createElement("button", { onClick: () => setShowQB(true), style: { width: "100%", marginTop: 16, padding: "14px 0", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: "0 4px 20px rgba(245,158,11,0.2)" } }, "\uD83D\uDCDD Build Quote"),
-          tab === "both" && !showQB && React.createElement("div", { style: { textAlign: "center", marginTop: 12, fontSize: 12, color: "#4a6b4a" } }, "Switch to Contractor or Residential tab to build a quote"),
-          showQB && React.createElement(QuoteBuilder, { zone, tab, matchedZip, onClose: () => setShowQB(false) }),
-          React.createElement(DiscountPanel, { zone, tab }),
+                      React.createElement("td", { style: Object.assign({}, td, { fontSize: 11, color: "#86a086" }) }, p.over)
+                    )
+                  )
+                )
+              )
+            )
+          ),
+
+          // Discount Panel
+          React.createElement(DiscountPanel, { zone: zone, tab: tab }),
+
+          // Other zips
           React.createElement("div", { style: { marginTop: 20, padding: "16px 18px", borderRadius: 14, background: "rgba(26,46,26,0.3)", border: "1px solid #1e2e1e" } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4a6b4a", marginBottom: 8 } }, "Other zips in this zone (" + zone.zips.length + " total)"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              zone.zips.slice().sort().map(z => React.createElement("span", { key: z, onClick: () => handleSearch(z), style: { padding: "3px 8px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 600, background: z === matchedZip ? "#22c55e" : "#1e2e1e", color: z === matchedZip ? "#000" : "#6b8f6b", cursor: "pointer", transition: "all 0.15s", border: z === matchedZip ? "1px solid #22c55e" : "1px solid #2d3d2d" } }, z)))))),
+              zone.zips.slice().sort().map(z =>
+                React.createElement("span", { key: z, onClick: () => handleSearch(z), style: { padding: "3px 8px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 600, background: z === matchedZip ? "#22c55e" : "#1e2e1e", color: z === matchedZip ? "#000" : "#6b8f6b", cursor: "pointer", transition: "all 0.15s", border: z === matchedZip ? "1px solid #22c55e" : "1px solid #2d3d2d" } }, z)
+              )
+            )
+          )
+        )
+      ),
+
+      // Empty state
       !zone && !notFound && React.createElement("div", { style: { textAlign: "center", padding: "40px 20px", color: "#3d5a3d" } },
         React.createElement("div", { style: { fontSize: 48, marginBottom: 12, opacity: 0.3 } }, "\u2315"),
         React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, "Enter a zip code above to get started"),
-        React.createElement("div", { style: { fontSize: 12, marginTop: 4, color: "#2d4a2d" } }, "Covers " + Object.keys(ZIP_MAP).length + " zip codes across " + ZONES.length + " zones"))));
+        React.createElement("div", { style: { fontSize: 12, marginTop: 4, color: "#2d4a2d" } }, "Covers " + Object.keys(ZIP_MAP).length + " zip codes across " + ZONES.length + " zones")
+      )
+    )
+  );
 }
 
 ReactDOM.render(React.createElement(App), document.getElementById("root"));

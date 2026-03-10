@@ -321,6 +321,176 @@ const ZIP_MAP = {};
 ZONES.forEach(z => z.zips.forEach(zip => { ZIP_MAP[zip] = z; }));
 const fmt = (v) => v === null ? null : "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// =====================================================
+// DOCKET CSV EXPORT (hidden — trigger with zip 99999)
+// =====================================================
+function exportDocketCSV() {
+  const BIN_CONFIG = {
+    "3 Yard": {
+      rows: [
+        { size: 3, category: "3 Yard", materials: "", name: 'D - 3 Yard Dumpster', overCol: 320, xtraCol: 25,
+          desc: '**THIS DUMPSTER DOES NOT HAVE WHEELS OR LIDS** If you want wheels and lids please select the 3yd with wheels and lids. Dimensions: 4W x 4T x 6L* (exact size may vary) Weight Included: 800lbs Overweight Charges: $16 per 100lbs Rental period: 8 days Additional Days: $25 each RESTRICTIONS: - No more than (2) wheelbarrow of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 800lbs limit, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "3 Yard w/ Wheels": {
+      rows: [
+        { size: 3, category: "3 Yard With Wheels", materials: "", name: 'D - 3 Yard Dumpster with Lids & Wheels', overCol: 320, xtraCol: 25,
+          desc: 'Dimensions: 4W x 4T x 6L* (exact size may vary) Weight Included: 800lbs Overweight Charges: $16 per 100lbs Rental period: 8 days Additional Days: $25 each The 3yd with wheels and lids can be moved around after being placed down by the truck RESTRICTIONS: - No heavy construction material such as dirt, concrete, brick, rock, etc. - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.) - If you move the dumpster from the spot that the driver dropped it off, you must move it back before removal.' }
+      ]
+    },
+    "9 Yard": {
+      rows: [
+        { size: 9, category: "9 Yard", materials: "", name: 'D - 9 Yard Dumpster', overCol: 110, xtraCol: 40,
+          desc: 'Dimensions: 6W x 4T x 10L* (exact size may vary) Weight Included: 1 tons Overweight Charges: $110/ton  Rental period: 8 days Additional Days: $40 each The 9cuyd dumpster can fit in most garages and carports! Perfect for fitting into tight spaces RESTRICTIONS: - No more than (5) wheelbarrow of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 1 ton inclusion, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "10 Yard Clean": {
+      inHouseRows: [
+        { size: 10, category: "10 Yard Clean", materials: "Clean Inert", name: 'D - 10 Yard "Low Boy" Clean Inert Material Only Dumpster', overCol: null, xtraCol: 40,
+          desc: 'Dimensions: 8W x 2T x 18L* (exact size may vary) Weight Included: Unlimted. Sorting Fee: $95-$150. Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - Single inert material (dirt, rock, OR concrete) - If you mix (2) or more inert materials it becomes a clean mixed load and a sorting fee will be charged - Any materials other than dirt, rock, or concrete will make it a mixed trash load and the inclusion will go down to 1 tons and overloads will be charged at the rate of $110/ton for general trash and $120/ton for construction and demolition. (NOTE: Grass and brick are considered trash and are charged by the ton) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ],
+      outsourcedRows: [
+        { size: 10, category: "10 Yard Mini Clean", materials: "Clean Inert", name: 'D - 10 Yard Mini Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 3T x 12L* (exact size may vary)  Weight Included: Unlimted Sorting Fee: $95-$150 Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - Single inert material (dirt, rock, OR concrete) - If you mix (2) or more inert materials it becomes a clean mixed load and a sorting fee will be charged - Any materials other than dirt, rock, or concrete will make it a mixed trash load and the inclusion will go down to 1 tons and overloads will be charged at the rate of $110/ton for general trash and $120/ton for construction and demolition. (NOTE: Grass and brick are considered trash and are charged by the ton) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "10 Yard": {
+      inHouseRows: [
+        { size: 10, category: "10 Yard", materials: "Mixed Trash", name: 'D - 10 Yard Dumpster', overCol: null, xtraCol: 40,
+          desc: 'Dimensions: 8W x 2T x 18L* (exact size may vary) Weight Included: 1 ton  Sorting Fee: $95-$150 Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - Single inert material (dirt, rock, OR concrete) - If you mix (2) or more inert materials it becomes a clean mixed load and a sorting fee will be charged - Any materials other than dirt, rock, or concrete will make it a mixed trash load and the inclusion will go down to 1 ton and overloads will be charged at the rate of $110/ton for general trash and $120/ton for construction and demolition. (NOTE: Grass and brick are considered trash and are charged by the ton) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' },
+      ],
+      outsourcedRows: [
+        { size: 10, category: "10 Yard Mini", materials: "Mixed Trash", name: 'D - 10 Yard Mini Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 3T x 12L* (exact size may vary)  Weight Included: 1 ton  Sorting Fee: $95-$150 Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - Single inert material (dirt, rock, OR concrete) - If you mix (2) or more inert materials it becomes a clean mixed load and a sorting fee will be charged - Any materials other than dirt, rock, or concrete will make it a mixed trash load and the inclusion will go down to 1 ton and overloads will be charged at the rate of $110/ton for general trash and $120/ton for construction and demolition. (NOTE: Grass and brick are considered trash and are charged by the ton) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' },
+      ]
+    },
+    "10 Yard Mini": {
+      rows: [
+        { size: 10, category: "10 Yard Mini", materials: "Mixed Trash", name: 'D - 10 Yard Mini Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 3T x 12L* (exact size may vary)  Weight Included: 1 ton  Sorting Fee: $95-$150 Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - Single inert material (dirt, rock, OR concrete) - If you mix (2) or more inert materials it becomes a clean mixed load and a sorting fee will be charged - Any materials other than dirt, rock, or concrete will make it a mixed trash load and the inclusion will go down to 1 ton and overloads will be charged at the rate of $110/ton for general trash and $120/ton for construction and demolition. (NOTE: Grass and brick are considered trash and are charged by the ton) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "12 Yard": {
+      rows: [
+        { size: 12, category: "12 Yard", materials: "", name: 'D - 12 Yard Dumpster', overCol: 110, xtraCol: 40,
+          desc: '*Dimensions: 7W x 3T x 16L* (exact size may vary) Weight Included: 1 ton Overweight Charges: $110/ton Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - No more than (8) wheelbarrow of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 1 ton inclusion, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "16 Yard": {
+      rows: [
+        { size: 16, category: "16 Yard", materials: "", name: 'D - 16 Yard Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 4T x 14L* (exact size may vary) Weight Included: 1 ton Overweight Charges: $110/ton Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - No more than (8) wheelbarrow of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 1 ton inclusion, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "25 Yard": {
+      rows: [
+        { size: 25, category: "25 Yard", materials: "", name: 'D - 25 Yard Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 6T x 15L* (exact size may vary) Weight Included: 2 tons Overweight Charges: $110/ton Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - No more than (15) wheelbarrows of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 2 ton inclusion, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+    "40 Yard": {
+      rows: [
+        { size: 40, category: "40 Yard", materials: "", name: 'D - 40 Yard Dumpster', overCol: null, xtraCol: 40,
+          desc: '*Dimensions: 8W x 6T x 22L* (exact size may vary) Weight Included: 3 tons Overweight Charges: $110/ton Rental period: 8 days Additional Days: $40 each RESTRICTIONS: - No more than (15) wheelbarrows of any heavy construction material such as dirt, concrete, brick, rock, etc. (This limitation does NOT mean that it will stay within the 3 ton inclusion, but that the truck can pick it up at removal) - Must be filled no more than level - No hazardous waste (ex. Chemicals, batteries, paint, fluorescent lights, oils, etc.) - No electronic waste (ex. Computers, monitors, printers, cell phones, etc.)' }
+      ]
+    },
+  };
+
+  function getOverCol(zone, pricingItem, configOverCol) {
+    if (configOverCol !== null) return configOverCol;
+    const overStr = pricingItem.over || "";
+    const match = overStr.match(/\$(\d+)/);
+    return match ? parseInt(match[1]) : 110;
+  }
+
+  function csvEscape(val) {
+    if (val === null || val === undefined) return "";
+    const s = String(val);
+    if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  const header = ["State/Province","County","City","Zip","Distance","Materials","Size","Category","Rental Length","Client Type","Pricing Type","Weight Allowance in Tons","Client Cost","Failed Client Cost","Cost per Ton Over","Cost per Day Over","Delivery Fee","Fuel Surcharge","Fuel Surcharge Percent","Task Type","Dump Location","Labor Cost","Material Cost","Equipment Cost","Taxable","Name","Description"];
+  const csvRows = [header.join(",")];
+
+  ZONES.forEach(zone => {
+    if (zone.pricing.length === 0) return;
+    if (zone.service === "NEED HAULER") return;
+    if (zone.service === "Junk Removal Only") return;
+
+    const zipStr = zone.zips.join("; ");
+
+    zone.pricing.forEach(p => {
+      if (p.cp === null && p.rp === null) return;
+
+      const binConfig = BIN_CONFIG[p.bin];
+      if (!binConfig) return;
+
+      // Determine which rows to use based on zone service type
+      const isInHouse = zone.service === "In-House";
+      let configRows;
+      if (binConfig.rows) {
+        configRows = binConfig.rows;
+      } else if (isInHouse && binConfig.inHouseRows) {
+        configRows = binConfig.inHouseRows;
+      } else if (!isInHouse && binConfig.outsourcedRows) {
+        configRows = binConfig.outsourcedRows;
+      } else {
+        configRows = binConfig.inHouseRows || binConfig.outsourcedRows || [];
+      }
+
+      configRows.forEach(cfg => {
+        const overVal = getOverCol(zone, p, cfg.overCol);
+
+        // Contractor row
+        if (p.cp !== null) {
+          const tons = cfg.forceTons !== undefined ? cfg.forceTons : p.ct;
+          const row = [
+            "California", "", "", csvEscape(zipStr), "",
+            csvEscape(cfg.materials), cfg.size, csvEscape(cfg.category),
+            p.days, "Contractor", "",
+            tons, p.cp, "",
+            overVal, cfg.xtraCol,
+            "", "", "", "", "", "", "", "",
+            "No", csvEscape(cfg.name), csvEscape(cfg.desc)
+          ];
+          csvRows.push(row.join(","));
+        }
+
+        // Residential row
+        if (p.rp !== null) {
+          const tons = cfg.forceTons !== undefined ? cfg.forceTons : p.rt;
+          const row = [
+            "California", "", "", csvEscape(zipStr), "",
+            csvEscape(cfg.materials), cfg.size, csvEscape(cfg.category),
+            p.days, "Residential", "",
+            tons, p.rp, "",
+            overVal, cfg.xtraCol,
+            "", "", "", "", "", "", "", "",
+            "No", csvEscape(cfg.name), csvEscape(cfg.desc)
+          ];
+          csvRows.push(row.join(","));
+        }
+      });
+    });
+  });
+
+  const csvContent = csvRows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const date = new Date().toISOString().slice(0,10);
+  link.download = "docket-pricing-matrix-" + date + ".csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  return csvRows.length - 1;
+}
+
 const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#fff", fontSize: 14, fontFamily: "'Segoe UI', sans-serif", outline: "none", boxSizing: "border-box" };
 const labelStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#4a6b4a", marginBottom: 5, display: "block" };
 
@@ -424,8 +594,11 @@ function App() {
   const [showQB, setShowQB] = useState(false);
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
-  const handleSearch = (val) => { setQuery(val); setShowQB(false); const c = val.trim(); if (c.length === 5 && /^\d{5}$/.test(c)) { const f = ZIP_MAP[c]; if (f) { setZone(f); setMatchedZip(c); setNotFound(false); } else { setZone(null); setMatchedZip(""); setNotFound(true); } } else { setZone(null); setMatchedZip(""); setNotFound(false); } };
-  const handleClear = () => { setQuery(""); setZone(null); setMatchedZip(""); setNotFound(false); setShowQB(false); inputRef.current && inputRef.current.focus(); };
+  const [exportMsg, setExportMsg] = useState(null);
+  const [showExport, setShowExport] = useState(false);
+  const handleExportClick = () => { const count = exportDocketCSV(); setExportMsg("\u2705 Docket matrix exported \u2014 " + count + " rows"); setTimeout(() => { setExportMsg(null); setShowExport(false); setQuery(""); }, 3000); };
+  const handleSearch = (val) => { setQuery(val); setShowQB(false); const c = val.trim(); if (c === "99999") { setShowExport(true); setZone(null); setMatchedZip(""); setNotFound(false); setExportMsg(null); return; } setShowExport(false); setExportMsg(null); if (c.length === 5 && /^\d{5}$/.test(c)) { const f = ZIP_MAP[c]; if (f) { setZone(f); setMatchedZip(c); setNotFound(false); } else { setZone(null); setMatchedZip(""); setNotFound(true); } } else { setZone(null); setMatchedZip(""); setNotFound(false); } };
+  const handleClear = () => { setQuery(""); setZone(null); setMatchedZip(""); setNotFound(false); setShowQB(false); setShowExport(false); setExportMsg(null); inputRef.current && inputRef.current.focus(); };
   const serviceBg = zone && zone.service === "In-House" ? "#14532d" : zone && zone.service === "Outsourced" ? "#7c2d12" : zone && zone.service === "NEED HAULER" ? "#7f1d1d" : "#1e3a2e";
   const th = { padding: "12px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b8f6b", borderBottom: "2px solid #2d4a2d" };
   const td = { padding: "11px 10px", textAlign: "center", color: "#a7c4a7" };
@@ -444,7 +617,10 @@ function App() {
           React.createElement("div", { style: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: zone ? "#22c55e" : notFound ? "#ef4444" : "#4a6b4a", fontSize: 20 } }, zone ? "\u2713" : notFound ? "\u2715" : "\u2315"),
           React.createElement("input", { ref: inputRef, type: "text", value: query, onChange: e => handleSearch(e.target.value), placeholder: "Enter zip code...", maxLength: 5, inputMode: "numeric", style: { width: "100%", boxSizing: "border-box", padding: "18px 50px 18px 48px", fontSize: 22, fontWeight: 700, fontFamily: "'SF Mono','Consolas',monospace", letterSpacing: 6, background: "transparent", border: "none", outline: "none", color: "#fff", textAlign: "center" } }),
           query && React.createElement("button", { onClick: handleClear, style: { position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.08)", border: "none", color: "#6b8f6b", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u00D7")),
-        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area")),
+        notFound && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#ef4444", fontSize: 13, fontWeight: 600 } }, "Zip code not found in service area"),
+        showExport && !exportMsg && React.createElement("div", { style: { textAlign: "center", marginTop: 14, animation: "fadeSlide 0.35s ease" } },
+          React.createElement("button", { onClick: handleExportClick, style: { padding: "14px 32px", borderRadius: 12, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#3b82f6,#2563eb)", color: "#fff", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: "0 4px 20px rgba(59,130,246,0.3)", transition: "all 0.2s" } }, "\uD83D\uDCE5 Export Docket Matrix")),
+        exportMsg && React.createElement("div", { style: { textAlign: "center", marginTop: 10, color: "#4ade80", fontSize: 14, fontWeight: 700, padding: "10px 16px", borderRadius: 10, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", animation: "fadeSlide 0.35s ease" } }, exportMsg)),
       zone && React.createElement("div", { style: { animation: "fadeSlide 0.35s ease" } },
         React.createElement("div", { style: { background: "linear-gradient(135deg,#1a2e1a 0%,#162016 100%)", borderRadius: 16, border: "1px solid #2d4a2d", padding: 24, marginBottom: 20 } },
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16 } },
@@ -496,7 +672,7 @@ function App() {
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#4a6b4a", marginBottom: 8 } }, "Other zips in this zone (" + zone.zips.length + " total)"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
               zone.zips.slice().sort().map(z => React.createElement("span", { key: z, onClick: () => handleSearch(z), style: { padding: "3px 8px", borderRadius: 6, fontSize: 11, fontFamily: "monospace", fontWeight: 600, background: z === matchedZip ? "#22c55e" : "#1e2e1e", color: z === matchedZip ? "#000" : "#6b8f6b", cursor: "pointer", transition: "all 0.15s", border: z === matchedZip ? "1px solid #22c55e" : "1px solid #2d3d2d" } }, z)))))),
-      !zone && !notFound && React.createElement("div", { style: { textAlign: "center", padding: "40px 20px", color: "#3d5a3d" } },
+      !zone && !notFound && !exportMsg && React.createElement("div", { style: { textAlign: "center", padding: "40px 20px", color: "#3d5a3d" } },
         React.createElement("div", { style: { fontSize: 48, marginBottom: 12, opacity: 0.3 } }, "\u2315"),
         React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, "Enter a zip code above to get started"),
         React.createElement("div", { style: { fontSize: 12, marginTop: 4, color: "#2d4a2d" } }, "Covers " + Object.keys(ZIP_MAP).length + " zip codes across " + ZONES.length + " zones")))));

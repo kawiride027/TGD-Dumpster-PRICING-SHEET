@@ -412,6 +412,14 @@ function exportDocketCSV() {
     return s;
   }
 
+  function adjustDesc(desc, tons) {
+    // Replace "Weight Included: X tons" with actual tons
+    let adjusted = desc.replace(/Weight Included: \d+ tons?/i, 'Weight Included: ' + tons + (tons === 1 ? ' ton' : ' tons'));
+    // Replace "stay within the X ton inclusion" with actual tons
+    adjusted = adjusted.replace(/stay within the \d+ ton inclusion/i, 'stay within the ' + tons + ' ton inclusion');
+    return adjusted;
+  }
+
   const header = ["State/Province","County","City","Zip","Distance","Materials","Size","Category","Rental Length","Client Type","Pricing Type","Weight Allowance in Tons","Client Cost","Failed Client Cost","Cost per Ton Over","Cost per Day Over","Delivery Fee","Fuel Surcharge","Fuel Surcharge Percent","Task Type","Dump Location","Labor Cost","Material Cost","Equipment Cost","Taxable","Name","Description"];
   const csvRows = [header.join(",")];
 
@@ -454,7 +462,7 @@ function exportDocketCSV() {
             tons, p.cp, "",
             overVal, cfg.xtraCol,
             "", "", "", "", "", "", "", "",
-            "No", csvEscape(cfg.name), csvEscape(cfg.desc)
+            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons))
           ];
           csvRows.push(row.join(","));
         }
@@ -469,7 +477,7 @@ function exportDocketCSV() {
             tons, p.rp, "",
             overVal, cfg.xtraCol,
             "", "", "", "", "", "", "", "",
-            "No", csvEscape(cfg.name), csvEscape(cfg.desc)
+            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons))
           ];
           csvRows.push(row.join(","));
         }

@@ -94,7 +94,13 @@ Evelyn, Tais, Emely, Kevin, CJ, Luis, Felix, Yuly, Dory, Dustin, Clint — each 
 - To update pricing: modify the `cp`/`rp` values in the zone's `pricing` array
 - Brand palette: dark bg `#0a0f0a`, green accents `#22c55e`/`#4ade80`, muted green text `#6b8f6b`/`#4a6b4a`
 
+## Pricing Strategy
+- Pricing is tied to fuel costs — baseline fuel price: **$5.50/gal**
+- As of 2026-03-26, fuel is **$7.09/gal** ($1.59 increase, ~29%)
+- Only in-house zone pricing is within TGD's control; outsourced zones are set by partner haulers
+
 ## Recent Changes
+- **2026-03-26**: Raised minimum overage rate to $120/Ton across ALL zones (in-house + outsourced) for 9yd+ bins. Heritage zones stay at $125/Ton (already above minimum). 3yd bins stay at $16/100 Lb everywhere. Updated BIN_CONFIG desc strings and overCol to match. Updated 10yd/10yd Clean inHouse desc: general trash $120/ton, C&D $130/ton. Updated getOverCol fallback to 120.
 - Added unique estimate numbers (TGD-YYYYMMDD-XXXX) to every quote — shown in app, email, and GHL payload
 - Added Google Sheet auto-logging via Apps Script — every sent quote logs to a spreadsheet for team reference
 - (Initial CLAUDE.md creation — March 2026)

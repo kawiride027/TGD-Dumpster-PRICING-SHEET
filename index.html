@@ -473,7 +473,7 @@ function exportDocketCSV() {
         if (p.cp !== null) {
           const tons = cfg.forceTons !== undefined ? cfg.forceTons : p.ct;
           const row = [
-            "California", "", csvEscape(zone.name), csvEscape(zipStr), "",
+            "California", "", "", csvEscape(zipStr), "",
             csvEscape(cfg.materials), cfg.size, csvEscape(cfg.category),
             p.days, "Contractor", "",
             tons, p.cp, "",
@@ -488,7 +488,7 @@ function exportDocketCSV() {
         if (p.rp !== null) {
           const tons = cfg.forceTons !== undefined ? cfg.forceTons : p.rt;
           const row = [
-            "California", "", csvEscape(zone.name), csvEscape(zipStr), "",
+            "California", "", "", csvEscape(zipStr), "",
             csvEscape(cfg.materials), cfg.size, csvEscape(cfg.category),
             p.days, "Residential", "",
             tons, p.rp, "",

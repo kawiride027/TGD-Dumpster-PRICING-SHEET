@@ -100,6 +100,7 @@ Evelyn, Tais, Emely, Kevin, CJ, Luis, Felix, Yuly, Dory, Dustin, Clint — each 
 - Only in-house zone pricing is within TGD's control; outsourced zones are set by partner haulers
 
 ## Recent Changes
+- **2026-08-19**: Raised **9 Yard** base price **+5% (rounded to nearest dollar)** across all 8 discountable in-house zones. SCV Zone excluded (held at $675). Outsourced zones untouched (partner-set). New: Valley $420, South Valley $439, South West $447, East Valley $490, LA $523, Far East Valley $503, Beach $558, Far West $551. Both `cp` and `rp` updated (identical on this bin). Included tonnage, overage rate, days, xtra, and `disc` all unchanged.
 - **2026-03-26**: Raised minimum overage rate to $120/Ton across ALL zones (in-house + outsourced) for 9yd+ bins. Heritage zones stay at $125/Ton (already above minimum). 3yd bins stay at $16/100 Lb everywhere. Updated BIN_CONFIG desc strings and overCol to match. Updated 10yd/10yd Clean inHouse desc: general trash $120/ton, C&D $130/ton. Updated getOverCol fallback to 120.
 - Added unique estimate numbers (TGD-YYYYMMDD-XXXX) to every quote — shown in app, email, and GHL payload
 - Added Google Sheet auto-logging via Apps Script — every sent quote logs to a spreadsheet for team reference

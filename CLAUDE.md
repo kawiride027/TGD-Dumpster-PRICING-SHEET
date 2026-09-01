@@ -63,7 +63,10 @@ Learned the hard way; violating these produces subtly wrong quotes.
 - Pricing is tied to fuel cost. The owner adjusts **per bin size and per zone**, not globally —
   expect requests like "raise just the 9yd 5% in all zones except SCV."
 - **SCV Zone is a no-discount zone by design** (`disc: 0` on every bin). It's also frequently excluded
-  from across-the-board raises. Confirm before including it.
+  from across-the-board raises. Confirm before including it. **Decided 2026-08-19:** SCV keeps
+  `disc: 0` on 9 Yard — it was deliberately left out when 9 Yard discounts were normalized to $15 in
+  the other eight in-house zones. Do not "fix" this for consistency; zero is intentional.
+- **TGD San Gabriel Valley Zone is also `disc: 0` on every bin**, by design (see Recent Changes).
 
 ## Deploy & Verify Workflow
 
@@ -207,8 +210,6 @@ Evelyn, Tais, Emely, Kevin, CJ, Luis, Felix, Yuly, Dory, John P., Dustin, Clint 
 - **91014** — requested as an addition but left unmapped. Falls between Far East Valley
   (91011/91012 La Cañada) and Heritage SGV (91010/91016 Duarte/Monrovia) territory, and may not be an
   assigned USPS zip. Pending confirmation.
-- **SCV Zone 9 Yard discount** — SCV was excluded when 9 Yard `disc` was set to $15 elsewhere. Open
-  question whether it should get discount room or stay at `disc: 0`.
 - **No pricing-change history file.** Change history currently lives only in git commits and the
   Recent Changes section below. A `PRICING-HISTORY.md` plus archived Docket CSV snapshots has been
   proposed but not built.

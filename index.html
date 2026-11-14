@@ -210,12 +210,12 @@ const ZONES = [
     pricing: [
       { bin: "3 Yard", cp: 700, ct: 0.8, rp: 700, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
       { bin: "3 Yard w/ Wheels", cp: 700, ct: 0.65, rp: 700, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
-      { bin: "9 Yard", cp: 905, ct: 1, rp: 905, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "10 Yard Clean", cp: 850, ct: 13, rp: 850, rt: 13, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "10 Yard", cp: 850, ct: 1, rp: 850, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "12 Yard", cp: 750, ct: 1, rp: 750, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "25 Yard", cp: 800, ct: 2, rp: 800, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "40 Yard", cp: 970, ct: 3, rp: 970, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
+      { bin: "9 Yard", cp: 905, ct: 1, rp: 905, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "10 Yard Clean", cp: 950, ct: 13, rp: 950, rt: 13, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "10 Yard", cp: 950, ct: 1, rp: 950, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "12 Yard", cp: 950, ct: 1, rp: 950, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "25 Yard", cp: 895, ct: 2, rp: 895, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "40 Yard", cp: 1025, ct: 3, rp: 1025, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
     ]
   },
   {
@@ -224,12 +224,12 @@ const ZONES = [
     pricing: [
       { bin: "3 Yard", cp: null, ct: 0.8, rp: null, rt: 0.8, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
       { bin: "3 Yard w/ Wheels", cp: null, ct: 0.65, rp: null, rt: 0.65, days: 8, xtra: 25, over: "$16/100 Lb", disc: 0 },
-      { bin: "9 Yard", cp: null, ct: 1, rp: null, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "10 Yard Clean", cp: 930, ct: 13, rp: 930, rt: 13, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "10 Yard", cp: 930, ct: 1, rp: 930, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "12 Yard", cp: 795, ct: 1, rp: 795, rt: 1, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "25 Yard", cp: 975, ct: 2, rp: 975, rt: 2, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
-      { bin: "40 Yard", cp: 1050, ct: 3, rp: 1050, rt: 3, days: 8, xtra: 40, over: "$120/Ton", disc: 0 },
+      { bin: "9 Yard", cp: null, ct: 1, rp: null, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "10 Yard Clean", cp: 1050, ct: 13, rp: 1050, rt: 13, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "10 Yard", cp: 1150, ct: 1, rp: 1150, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "12 Yard", cp: 975, ct: 1, rp: 975, rt: 1, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "25 Yard", cp: 1050, ct: 2, rp: 1050, rt: 2, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
+      { bin: "40 Yard", cp: 1095, ct: 3, rp: 1095, rt: 3, days: 8, xtra: 40, over: "$150/Ton", disc: 0 },
     ]
   },
   { name: "Budget Zone 1", miles: "N/A", service: "Outsourced", hauler: "Budget Disposal - Craig/Ramiro", phone: "818-998-1700 / 818-510-9615", dryRunLg: "$175", dryRunSmAdj: "-$25", multiBin3Yd: null, notes: "DELIVER UNMARKED 3YD WITH WHEELS ONLY",
@@ -428,7 +428,16 @@ function exportDocketCSV() {
   };
 
   function getOverCol(zone, pricingItem, configOverCol) {
-    if (configOverCol !== null) return configOverCol;
+    // 9 Yard and 12 Yard hardcode overCol 120. Avel's sheet rate is the
+    // source of truth for those rows; every other zone keeps the config value.
+    // 3 Yard stays on its config value because its over string is $/100 Lb, not $/Ton.
+    if (configOverCol !== null) {
+      if (zone && /^Avel /.test(zone.name)) {
+        const tonMatch = (pricingItem.over || "").match(/\$(\d+)\s*\/\s*Ton/i);
+        if (tonMatch) return parseInt(tonMatch[1], 10);
+      }
+      return configOverCol;
+    }
     const overStr = pricingItem.over || "";
     const match = overStr.match(/\$(\d+)/);
     return match ? parseInt(match[1]) : 120;
@@ -443,11 +452,19 @@ function exportDocketCSV() {
     return s;
   }
 
-  function adjustDesc(desc, tons) {
+  function adjustDesc(desc, tons, zone, pricingItem) {
     // Replace "Weight Included: X tons" with actual tons
     let adjusted = desc.replace(/Weight Included: \d+ tons?/i, 'Weight Included: ' + tons + (tons === 1 ? ' ton' : ' tons'));
     // Replace "stay within the X ton inclusion" with actual tons
     adjusted = adjusted.replace(/stay within the \d+ ton inclusion/i, 'stay within the ' + tons + ' ton inclusion');
+    // BIN_CONFIG descriptions hardcode $120/ton. Rewrite that figure on Avel
+    // rows only, using the zone's own $/Ton rate. $130/ton C&D wording is left as-is.
+    if (zone && /^Avel /.test(zone.name)) {
+      const tonMatch = (pricingItem.over || "").match(/\$(\d+)\s*\/\s*Ton/i);
+      if (tonMatch && tonMatch[1] !== "120") {
+        adjusted = adjusted.replace(/\$120\/ton/g, "$" + tonMatch[1] + "/ton");
+      }
+    }
     return adjusted;
   }
 
@@ -493,7 +510,7 @@ function exportDocketCSV() {
             tons, p.cp, "",
             overVal, cfg.xtraCol,
             "", "", "", "", "", "", "", "",
-            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons))
+            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons, zone, p))
           ];
           csvRows.push(row.join(","));
         }
@@ -508,7 +525,7 @@ function exportDocketCSV() {
             tons, p.rp, "",
             overVal, cfg.xtraCol,
             "", "", "", "", "", "", "", "",
-            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons))
+            "No", csvEscape(cfg.name), csvEscape(adjustDesc(cfg.desc, tons, zone, p))
           ];
           csvRows.push(row.join(","));
         }

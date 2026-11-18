@@ -326,6 +326,14 @@ function isSample(mode) {
   return !!flag;
 }
 
+function constructionDateLabel(blocks) {
+  const hasPole = blocks.some(block => block.pole);
+  const hasRestroom = blocks.some(block => !block.pole);
+  if (hasPole && hasRestroom) return "Requested Delivery / Installation Date";
+  if (hasPole) return "Requested Installation Date";
+  return "Requested Delivery Date";
+}
+
 function freqLabel(days) {
   const n = days || 1;
   return n === 1 ? "1 day/week" : n + " days/week";
@@ -716,6 +724,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   const constructionMode = mode === "construction";
   const sheet = constructionMode ? buildConstructionQuote(picked, opts, serviceDays) : null;
   const quoteEmail = companyEmailFor(draft.csrName);
+  const polesOnly = !!(sheet && sheet.blocks.length > 0 && sheet.blocks.every(block => block.pole));
+  const scheduleLabel = constructionMode ? constructionDateLabel(sheet.blocks) : "";
   const catalog = catalogLines(mode);
   const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
   const eventsDelivery = (!constructionMode && ordered.length) ? RESTROOM_PRICES.eventsDelivery : 0;
@@ -754,7 +764,11 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     linesOut.push(COMPANY_PHONE);
     linesOut.push(quoteEmail);
     linesOut.push("");
-    linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
+    linesOut.push(scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : ""));
+    if (!polesOnly) {
+      linesOut.push("");
+      linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
+    }
     linesOut.push("");
     sheet.blocks.forEach((block, idx) => {
       const p = block.product;
@@ -845,7 +859,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
     });
     rows.push("<tr><td colspan='2' style='" + label + "font-size:14px;font-weight:700;color:#ffffff;'>Then " + fmt(sheet.recurring) + " every 28 days</td></tr>");
-    return contactHtml(quoteEmail) + "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+    const dateLine = "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;'>" + scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : "") + "</p>";
+    return contactHtml(quoteEmail) + dateLine + "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
   }
 
   function summaryHtml() {
@@ -943,7 +958,12 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       service_type: "Portable Restroom",
       use_case: useCase(),
       ...(constructionMode
-        ? { service_days_per_week: serviceDays, requested_delivery_date: draft.deliveryDate, recurring_28_day_total: sheet.recurring.toFixed(2) }
+        ? {
+            ...(polesOnly ? {} : { service_days_per_week: serviceDays }),
+            requested_delivery_date: draft.deliveryDate,
+            requested_installation_date: draft.deliveryDate,
+            recurring_28_day_total: sheet.recurring.toFixed(2),
+          }
         : { event_date: draft.eventDate, delivery_date: draft.deliveryDate }),
       unit_count: rows.length,
       ...flat,
@@ -1044,7 +1064,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
               <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Requested Delivery Date</label>
+              <label style={labelStyle}>{scheduleLabel}</label>
               <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
             </div>
           </div>
@@ -1075,7 +1095,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
           <div style={{ fontSize: 11, color: "#4a6b4a", marginTop: 5 }}>Street address for the order. Price does not change by city.</div>
         </div>
 
-        {constructionMode && (
+        {constructionMode && !polesOnly && (
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>How many days per week of service?</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1085,7 +1105,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same. Temp power poles are not multiplied.</div>
+            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same.</div>
           </div>
         )}
         <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>

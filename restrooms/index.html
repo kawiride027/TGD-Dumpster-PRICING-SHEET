@@ -73,6 +73,9 @@ const GOOGLE_SHEET_URL = "";
 // =====================================================
 const RESTROOM_PRICES = {
   samplePrices: { events: true, construction: false },
+  // PLACEHOLDER. One Events delivery charge per drop, not per unit.
+  // Change this single number when a real event delivery rate exists.
+  eventsDelivery: 99,
   rentalTerms: "Billing is in 28-day periods. Recurring billing starts after the first 28 days.",
   brokerNote: "Restrooms are brokered to Global Sanitation or SoCal. Quote the customer-facing price only. Do not discuss vendor cost.",
   units: [
@@ -84,7 +87,7 @@ const RESTROOM_PRICES = {
       imageAlt: "Teal standard portable restroom",
       disc: 0,
       events: {
-        day: { price: 175, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Add delivery and service as their own lines." },
+        day: { price: 175, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Delivery and set-up is one charge per drop." },
         weekend: { price: 375, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
     },
@@ -96,7 +99,7 @@ const RESTROOM_PRICES = {
       imageAlt: "Teal deluxe portable restroom with an interior sink",
       disc: 0,
       events: {
-        day: { price: 225, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Sink inside the unit. Add delivery and service as their own lines." },
+        day: { price: 225, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Sink inside the unit. Delivery and set-up is one charge per drop." },
         weekend: { price: 475, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
     },
@@ -108,7 +111,7 @@ const RESTROOM_PRICES = {
       imageAlt: "Deluxe flushable portable restroom",
       disc: 0,
       events: {
-        day: { price: 275, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Flushing toilet and sink. Add delivery and service as their own lines." },
+        day: { price: 275, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Flushing toilet and sink. Delivery and set-up is one charge per drop." },
         weekend: { price: 575, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
     },
@@ -120,7 +123,7 @@ const RESTROOM_PRICES = {
       imageAlt: "Gray ADA portable restroom with a wheelchair symbol",
       disc: 0,
       events: {
-        day: { price: 200, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Ground-level accessible unit. Add delivery and service as their own lines." },
+        day: { price: 200, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Ground-level accessible unit. Delivery and set-up is one charge per drop." },
         weekend: { price: 425, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
     },
@@ -215,15 +218,6 @@ const RESTROOM_PRICES = {
       price: 95, /* PLACEHOLDER — events only. Construction service is in the price book. */
       bill: "each visit",
       includes: "One extra pump-out and restock.",
-    },
-    {
-      id: "delivery",
-      name: "Delivery & Pickup",
-      blurb: "One drop-off and the final pickup",
-      disc: 0,
-      price: 150, /* PLACEHOLDER — events only. Construction delivery is $99 per unit in the price book. */
-      bill: "per drop",
-      includes: "One delivery and the final pickup.",
     },
   ],
 };
@@ -598,7 +592,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   const sheet = constructionMode ? buildConstructionQuote(picked, opts, serviceDays) : null;
   const catalog = catalogLines(mode);
   const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
-  const total = constructionMode ? sheet.total : ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0);
+  const eventsDelivery = (!constructionMode && ordered.length) ? RESTROOM_PRICES.eventsDelivery : 0;
+  const total = constructionMode ? sheet.total : ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0) + eventsDelivery;
   const totalQty = constructionMode ? sheet.blocks.reduce((sum, block) => sum + block.qty, 0) : ordered.reduce((sum, line) => sum + lines[line.key].qty, 0);
   const hasQuote = constructionMode ? sheet.blocks.length > 0 : ordered.length > 0;
   const anyDisc = catalog.some(line => line.disc > 0);
@@ -670,6 +665,12 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       linesOut.push("💰 " + fmt(info.finalPrice) + "/ea" + (info.discount > 0 ? " (saved $" + info.discount + ")" : "") + " = " + fmt(lineTotal));
       linesOut.push("📅 " + info.rentalPeriod);
     });
+    if (eventsDelivery) {
+      linesOut.push("");
+      linesOut.push("Delivery & Set-Up (x1)");
+      linesOut.push("💰 " + fmt(eventsDelivery) + " = " + fmt(eventsDelivery));
+      linesOut.push("📅 per drop");
+    }
     linesOut.push("");
     linesOut.push("💲 Total: " + totalQty + " item" + (totalQty === 1 ? "" : "s") + " — " + fmt(total));
     return linesOut;
@@ -706,8 +707,12 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
         priceCell = "<s style='color:#8aaa8a;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.basePrice) + "</s><br><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.finalPrice) + "</span> <span style='color:#2ECC40;font-size:11px;line-height:16px;white-space:nowrap;'>(saved $" + info.discount + ")</span>";
       }
       rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;'>" + line.name + "</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;width:30px;'>" + info.qty + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;'>" + priceCell + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;white-space:nowrap;'>" + fmt(lineTotal) + "</td></tr>");
-      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
+      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
     });
+    if (eventsDelivery) {
+      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;line-height:20px;'>Delivery &amp; Set-Up</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;line-height:20px;'>1</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;line-height:18px;'><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</span></td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;line-height:20px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</td></tr>");
+      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>per drop &bull; one charge for the quote, not per unit</td></tr>");
+    }
     const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
     return banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
   }
@@ -754,6 +759,16 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
         rentalPeriod: info.rentalPeriod,
       };
     });
+    if (!constructionMode && eventsDelivery) {
+      rows.push({
+        name: "Delivery & Set-Up",
+        qty: 1,
+        finalPrice: eventsDelivery,
+        lineTotal: eventsDelivery,
+        serviceFrequency: "Per drop",
+        rentalPeriod: "per drop",
+      });
+    }
     rows.forEach((info, i) => {
       const n = i + 1;
       const lineTotal = info.lineTotal != null ? info.lineTotal : info.finalPrice * info.qty;
@@ -777,7 +792,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       ...(constructionMode
         ? { service_days_per_week: serviceDays, requested_delivery_date: draft.deliveryDate, recurring_28_day_total: sheet.recurring.toFixed(2) }
         : { event_date: draft.eventDate, delivery_date: draft.deliveryDate }),
-      unit_count: ordered.length,
+      unit_count: rows.length,
       ...flat,
       quote_summary: summaryParts().join("\n"),
       quote_summary_html: summaryHtml(),
@@ -912,7 +927,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {[1, 2, 3].map(days => (
                 <button key={days} type="button" onClick={() => onServiceDays(days)} aria-pressed={serviceDays === days} style={{ padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 800, background: serviceDays === days ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: serviceDays === days ? "2px solid #4ade80" : "1px solid #2d4a2d", color: serviceDays === days ? "#fff" : "#86a086" }}>
-                  {days === 1 ? "1 · Weekly" : String(days)}
+                  {days + "x"}
                 </button>
               ))}
             </div>
@@ -955,10 +970,10 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
               <div style={{ marginTop: 8, fontSize: 12, color: "#86a086" }}>
                 Each added 28 days: Unit {fmt(block.addedRate.unitEach)}{p.added.service != null ? " + Service Fee " + fmt(block.addedRate.serviceEach) : ""} = {fmt(block.addedRate.total)}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote</span>
-                <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, opt.extra - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
-                <span style={{ fontWeight: 800 }}>{opt.extra || 0}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote (Leave blank if not known)</span>
+                <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, (opt.extra || 0) - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                <input value={opt.extra ? String(opt.extra) : ""} onChange={e => { const raw = e.target.value.trim(); if (raw === "") { onOpt(p.id, { extra: 0 }); return; } if (!/^\d+$/.test(raw)) return; onOpt(p.id, { extra: Math.min(10, parseInt(raw, 10)) }); }} inputMode="numeric" aria-label="Added 28-day periods" placeholder="" style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#fff", fontWeight: 800, textAlign: "center" }} />
                 <button type="button" onClick={() => onOpt(p.id, { extra: Math.min(10, (opt.extra || 0) + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
                 {block.added ? <span style={{ marginLeft: "auto", color: "#4ade80", fontWeight: 800 }}>{fmt(block.added.total)}</span> : null}
               </div>
@@ -1015,6 +1030,16 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
             </div>
           );
         })}
+
+        {!constructionMode && eventsDelivery > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#d1e7d1" }}>Delivery & Set-Up</div>
+              <div style={{ fontSize: 11, color: "#4a6b4a" }}>per drop · one charge for the quote, not per unit · sample price</div>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80" }}>{fmt(eventsDelivery)}</div>
+          </div>
+        )}
 
         {constructionMode && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: "#fde68a", lineHeight: 1.45 }}>{RESTROOM_PRICES.rentalTerms}</div>}
         {constructionMode && <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#fde68a" }}>Then {fmt(sheet.recurring)} every 28 days</div>}
@@ -1085,6 +1110,14 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
                   <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>{line.includes}</td>
                 </tr>
               ))}
+              {!constructionMode && (
+                <tr style={{ background: "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>Delivery & Set-Up</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(RESTROOM_PRICES.eventsDelivery)}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>per drop</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>PLACEHOLDER. One charge for the quote, not per unit.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

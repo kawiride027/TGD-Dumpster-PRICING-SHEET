@@ -64,10 +64,9 @@ function contactHtml(email) {
 
 // LeadConnector inbound webhook for the restroom follow-up workflow.
 // Same POST as the dumpster app (JSON, Content-Type: application/json) but a
-// different trigger. Leave this empty until that workflow exists.
-// Do not paste the dumpster webhook. That workflow is "CSR Dumpster Quote"
-// and it sends the dumpster email and SMS.
-const RESTROOM_WEBHOOK_URL = "";
+// different trigger. Do not paste the dumpster webhook. That workflow is
+// "CSR Dumpster Quote" and it sends the dumpster email and SMS.
+const RESTROOM_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/kqEtDp99ma4X3GLUjhv2/webhook-trigger/5b14982a-056b-4939-bc76-5a9c181e137c";
 // Same Apps Script as the dumpster quote log. It writes the active tab of the
 // dumpster spreadsheet and only reads the 12 dumpster field names below.
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxVXMApmhBAOZ_T-jrttCsytZ6d7cNMVq4pKghpOj1_SHw_kzMhXk8xlnF6o4mQY0x4/exec";
@@ -964,8 +963,9 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       customer_phone: draft.custPhone,
       customer_email: draft.custEmail,
       job_address: draft.address.trim(),
-      service_type: "Portable Restroom",
+      service_type: serviceTypeLabel(),
       use_case: useCase(),
+      customer_type: useCase(),
       ...(constructionMode
         ? {
             ...(polesOnly ? {} : { service_days_per_week: serviceDays }),
@@ -984,6 +984,15 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       company_email: quoteEmail,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  function serviceTypeLabel() {
+    if (!constructionMode) return "Portable Restroom";
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    if (hasPole && hasRestroom) return "Portable Restroom & Temp Power Pole";
+    if (hasPole) return "Temp Power Pole";
+    return "Portable Restroom";
   }
 
   function sheetKind() {

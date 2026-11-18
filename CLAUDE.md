@@ -123,7 +123,7 @@ TGD-Dumpster-PRICING-SHEET/
 
 ## Portable Restroom Quote Tool
 
-CSR quote tool for portable restrooms. It is a separate single-file app at `restrooms/index.html` (GitHub Pages: https://kawiride027.github.io/TGD-Dumpster-PRICING-SHEET/restrooms/). It does not read `ZONES` or `ZIP_MAP`. Do not edit the dumpster `index.html` when changing restroom rates or the restroom webhook.
+CSR quote tool for portable restrooms. It is a separate single-file app at `restrooms/index.html` (GitHub Pages: https://kawiride027.github.io/TGD-Dumpster-PRICING-SHEET/restrooms/). It does not read `ZONES` or `ZIP_MAP`. Do not edit the dumpster `index.html` when changing restroom rates or the restroom webhook. The restroom brand name is exactly **The Green Dumpster/All Site Rentals** (header, page title, quote text, and `company_name`). Phone and email stay `(818) 800-8888` and `info@thegreendumpster.com`. The header logo is `restrooms/img/tgd-asr-logo.webp`.
 
 - **No zip lookup.** The price is the same for every address. The job address is free text on the quote.
 - **Step 1** asks "Is this for an Event or a Long-term Construction Site?" with two large text cards: EVENT and Long Term Construction Site.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TGD Restroom Pricing</title>
+<title>The Green Dumpster/All Site Rentals — Portable Restroom Quote</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚻</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -30,6 +30,7 @@
   @media (max-width: 460px) {
     .unit-grid { grid-template-columns: 1fr; }
   }
+  .brand-lockup { display: block; width: min(100%, 520px); height: auto; }
 </style>
 </head>
 <body>
@@ -43,7 +44,7 @@ const { useState, useRef } = React;
 // =====================================================
 const CSR_NAMES = ["Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
 const CSR_EMAILS = {"Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
-const COMPANY_NAME = "The Green Dumpster";
+const COMPANY_NAME = "The Green Dumpster/All Site Rentals";
 const COMPANY_PHONE = "(818) 800-8888";
 const COMPANY_EMAIL = "info@thegreendumpster.com";
 
@@ -479,15 +480,13 @@ function AppShell({ mode, children }) {
     <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
       <div style={{ position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" }} />
       <div style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🚻</div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: "#4ade80" }}>The Green Dumpster</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: -0.3 }}>Portable Restroom Quote</div>
-            </div>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+            <img className="brand-lockup" src="img/tgd-asr-logo.webp" alt={COMPANY_NAME} />
+            <div style={{ marginTop: 10, fontSize: 16, fontWeight: 800, color: "#fff", lineHeight: 1.35 }}>{COMPANY_NAME}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#86a086", marginTop: 2 }}>Portable Restroom Quote</div>
           </div>
-          <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12" }}>Dumpster pricing</a>
+          <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>
         </div>
         <SampleBanner mode={mode} />
         {children}
@@ -624,6 +623,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   // Same shape as the dumpster quote text. 🚻 stands in for the dumpster's 🟢.
   function constructionSummary() {
     const linesOut = [];
+    linesOut.push(COMPANY_NAME);
+    linesOut.push("");
     linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
     linesOut.push("");
     sheet.blocks.forEach((block, idx) => {
@@ -652,7 +653,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
 
   function summaryParts() {
     if (constructionMode) return constructionSummary();
-    const linesOut = [];
+    const linesOut = [COMPANY_NAME, ""];
     if (isSample(mode)) {
       linesOut.push("⚠️ SAMPLE PRICES - not final");
       linesOut.push("");
@@ -693,7 +694,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
     });
     rows.push("<tr><td colspan='2' style='" + label + "font-size:14px;font-weight:700;color:#ffffff;'>Then " + fmt(sheet.recurring) + " every 28 days</td></tr>");
-    return "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+    return "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:800;color:#ffffff;'>" + COMPANY_NAME + "</p><p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
   }
 
   function summaryHtml() {
@@ -713,8 +714,9 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;line-height:20px;'>Delivery &amp; Set-Up</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;line-height:20px;'>1</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;line-height:18px;'><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</span></td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;line-height:20px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</td></tr>");
       rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>per drop &bull; one charge for the quote, not per unit</td></tr>");
     }
+    const brand = "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:800;color:#ffffff;'>" + COMPANY_NAME + "</p>";
     const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
-    return banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
+    return brand + banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
   }
 
   async function copyQuote() {
@@ -833,6 +835,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       <div style={{ marginTop: 8, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" }}>
         <div style={{ fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" }}>✅</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 }}>Quote Sent!</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{COMPANY_NAME}</div>
         <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 8, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#6b8f6b" }}>Estimate # </span>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#fff", fontFamily: "monospace", letterSpacing: 1 }}>{estimateNum}</span>

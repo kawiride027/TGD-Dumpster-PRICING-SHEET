@@ -59,20 +59,21 @@ const GOOGLE_SHEET_URL = "";
 // =====================================================
 // RESTROOM_PRICES — edit this object in the GitHub web editor.
 //
-// samplePrices: the SAMPLE PRICES banner is on while this is true.
-//   Set it to false only after every number below is a confirmed rate.
-// disc: max discount in dollars. Must be a multiple of 5.
-//   0 means the quote builder will not offer a discount on that item.
-// price: null hides that line (the product is not offered that way).
+// samplePrices is per mode. Events is still a placeholder list.
+// Construction is the price book: samplePrices.construction is false, so that
+// mode has no SAMPLE PRICES banner and no sample warning in the quote text.
+// disc: max discount in dollars. Must be a multiple of 5. 0 means no discount.
+// price: null hides that events line.
 //
-// Events: a day rate and a weekend rate are separate quote lines.
-// Construction: the first 28 days and each added 28 days are separate quote lines.
-//   The first 28 days includes weekly service. Add-ons are lines too.
-// Photos in restrooms/img/ are copies of All Site Rentals product photos
-// (allsiterentals.com/asr/img/photos/) so this page still loads if that site changes.
+// Construction billing is 28-day periods. The first period is Unit + one-time
+// Delivery & Set-Up + Service Fee. Each added 28 days is Unit + Service Fee.
+// Weekly is the default. 2x per week doubles the service fee. 3x triples it.
+// Unit and delivery do not change with frequency.
+// Photos in restrooms/img/ are copies of All Site Rentals product photos.
 // =====================================================
 const RESTROOM_PRICES = {
-  samplePrices: true,
+  samplePrices: { events: true, construction: false },
+  rentalTerms: "Billing is in 28-day periods. Recurring billing starts after the first 28 days.",
   brokerNote: "Restrooms are brokered to Global Sanitation or SoCal. Quote the customer-facing price only. Do not discuss vendor cost.",
   units: [
     {
@@ -86,10 +87,6 @@ const RESTROOM_PRICES = {
         day: { price: 175, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Add delivery and service as their own lines." },
         weekend: { price: 375, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
-      construction: {
-        first: { price: 268, /* PLACEHOLDER — recent CSR quotes used about $268 for the first 28 days. Not a confirmed price list. */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
-        extra: { price: 230, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
-      },
     },
     {
       id: "deluxe-sink",
@@ -101,10 +98,6 @@ const RESTROOM_PRICES = {
       events: {
         day: { price: 225, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Sink inside the unit. Add delivery and service as their own lines." },
         weekend: { price: 475, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
-      },
-      construction: {
-        first: { price: 290, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
-        extra: { price: 250, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
       },
     },
     {
@@ -118,10 +111,6 @@ const RESTROOM_PRICES = {
         day: { price: 275, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Flushing toilet and sink. Add delivery and service as their own lines." },
         weekend: { price: 575, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
-      construction: {
-        first: { price: 316, /* PLACEHOLDER — recent CSR quotes used about $316 for the first 28 days. Not a confirmed price list. */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
-        extra: { price: 270, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
-      },
     },
     {
       id: "ada",
@@ -133,10 +122,6 @@ const RESTROOM_PRICES = {
       events: {
         day: { price: 200, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Ground-level accessible unit. Add delivery and service as their own lines." },
         weekend: { price: 425, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
-      },
-      construction: {
-        first: { price: 340, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
-        extra: { price: 290, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
       },
     },
     {
@@ -150,10 +135,6 @@ const RESTROOM_PRICES = {
         day: { price: 85, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Soap and paper towels stocked at delivery." },
         weekend: { price: 175, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 restock." },
       },
-      construction: {
-        first: { price: 160, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly restock included (4 visits)." },
-        extra: { price: 140, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days. Weekly restock included." },
-      },
     },
     {
       id: "vip-2",
@@ -166,10 +147,63 @@ const RESTROOM_PRICES = {
         day: { price: 1200, /* PLACEHOLDER */ bill: "per day", includes: "1-day trailer rental. Add delivery as its own line." },
         weekend: { price: 2600, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
       },
-      construction: {
-        first: { price: 2200, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
-        extra: { price: 1900, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days. Weekly service included." },
-      },
+    },
+  ],
+  // Long-term / construction price book. Events does not use this list.
+  // Quote totals are the sum of the line items. Weekly service is the default.
+  construction: [
+    {
+      id: "standard",
+      name: "Standard Portable Restroom",
+      emoji: "🚻",
+      blurb: "Job-site unit",
+      image: "img/standard-restroom.webp",
+      imageAlt: "Teal standard portable restroom",
+      // First 28 days: $10 + $99 + $159.40 = $268.40. Added period service stays $158.98.
+      first: { unit: 10.00, delivery: 99.00, service: 159.40 },
+      added: { unit: 10.00, service: 158.98 },
+    },
+    {
+      id: "deluxe",
+      name: "Deluxe Portable Restroom",
+      emoji: "🚻",
+      blurb: "Deluxe unit",
+      image: "img/deluxe-flushable-restroom-with-sink.webp",
+      imageAlt: "Deluxe portable restroom",
+      first: { unit: 10.00, delivery: 99.00, service: 207.47 },
+      added: { unit: 10.00, service: 207.47 },
+    },
+    {
+      id: "handwash",
+      name: "Handwash Station",
+      emoji: "🚿",
+      blurb: "Hand-wash station",
+      image: "img/handwashing-station.webp",
+      imageAlt: "Portable hand-washing station",
+      first: { unit: 10.00, delivery: 99.00, service: 172.40 },
+      added: { unit: 10.00, service: 172.40 },
+    },
+    {
+      id: "ada",
+      name: "ADA Portable Restroom",
+      emoji: "♿",
+      blurb: "Wheelchair accessible",
+      image: "img/ada-restroom.webp",
+      imageAlt: "ADA portable restroom",
+      first: { unit: 10.00, delivery: 99.00, service: 215.00 },
+      added: { unit: 10.00, service: 215.00 },
+    },
+    {
+      id: "tray",
+      name: "Containment Tray",
+      emoji: "",
+      blurb: "Add-on. Delivery is waived when it goes out with a unit.",
+      image: "",
+      imageAlt: "",
+      addon: true,
+      waiveDeliveryWithUnit: true,
+      first: { unit: 15.00, delivery: 99.00 },
+      added: { unit: 15.00 },
     },
   ],
   addons: [
@@ -178,7 +212,7 @@ const RESTROOM_PRICES = {
       name: "Extra Service / Pump-Out",
       blurb: "One extra pump-out and restock",
       disc: 0,
-      price: 95, /* PLACEHOLDER — same price for events and construction */
+      price: 95, /* PLACEHOLDER — events only. Construction service is in the price book. */
       bill: "each visit",
       includes: "One extra pump-out and restock.",
     },
@@ -187,7 +221,7 @@ const RESTROOM_PRICES = {
       name: "Delivery & Pickup",
       blurb: "One drop-off and the final pickup",
       disc: 0,
-      price: 150, /* PLACEHOLDER — same price for events and construction */
+      price: 150, /* PLACEHOLDER — events only. Construction delivery is $99 per unit in the price book. */
       bill: "per drop",
       includes: "One delivery and the final pickup.",
     },
@@ -225,16 +259,98 @@ function serviceFrequency(unitId, variant) {
 }
 
 function fmt(v) {
-  if (v === null || v === undefined) return "";
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return "";
   return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function money(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+function isSample(mode) {
+  const flag = RESTROOM_PRICES.samplePrices;
+  if (flag && typeof flag === "object") return !!flag[mode];
+  return !!flag;
+}
+
+function freqLabel(mult) {
+  if (mult === 2) return "2x per week";
+  if (mult === 3) return "3x per week";
+  return "Weekly";
+}
+
+// One 28-day period for one product. qty is unit count.
+// freqMult scales the service fee only. Delivery is waived when asked.
+// A higher service frequency multiplies the service fee only.
+// listedTotal, if set, replaces the weekly line sum. Construction rates do not use it.
+function periodMath(spec, qty, freqMult, waiveDelivery) {
+  const mult = freqMult || 1;
+  const unitEach = spec.unit || 0;
+  const serviceBase = spec.service || 0;
+  const serviceEach = serviceBase * mult;
+  const deliveryEach = waiveDelivery ? 0 : (spec.delivery || 0);
+  const linesEach = money(unitEach + serviceEach + deliveryEach);
+  const weeklyLines = money(unitEach + serviceBase + (spec.delivery || 0));
+  const gapEach = spec.listedTotal != null ? money(spec.listedTotal - weeklyLines) : 0;
+  const totalEach = money(linesEach + gapEach);
+  return {
+    unit: money(unitEach * qty),
+    service: money(serviceEach * qty),
+    delivery: money(deliveryEach * qty),
+    linesSum: money(linesEach * qty),
+    gap: money(gapEach * qty),
+    total: money(totalEach * qty),
+    unitEach: unitEach,
+    serviceEach: serviceEach,
+    deliveryEach: deliveryEach,
+  };
+}
+
+function buildConstructionQuote(picked, opts) {
+  const selected = RESTROOM_PRICES.construction.filter(p => picked[p.id]);
+  const withUnit = selected.some(p => !p.addon);
+  const blocks = [];
+  const charges = [];
+  selected.forEach(product => {
+    const opt = opts[product.id] || { qty: 1, freq: 1, extra: 0 };
+    const qty = Math.min(10, Math.max(1, opt.qty || 1));
+    const freq = product.addon || product.first.service == null ? 1 : (opt.freq || 1);
+    const extra = Math.min(10, Math.max(0, opt.extra || 0));
+    const waive = !!(product.waiveDeliveryWithUnit && withUnit);
+    const first = periodMath(product.first, qty, freq, waive);
+    const added = extra > 0 ? periodMath(product.added, qty * extra, freq, true) : null;
+    const addedRate = periodMath(product.added, 1, freq, true);
+    blocks.push({ product, qty, freq, extra, waive, first, added, addedRate });
+    const freqName = product.first.service == null ? "" : freqLabel(freq);
+    const push = (label, amount, period) => {
+      charges.push({
+        name: product.name + " — " + label,
+        qty: qty,
+        finalPrice: amount / qty,
+        lineTotal: amount,
+        serviceFrequency: freqName || "n/a",
+        rentalPeriod: period,
+      });
+    };
+    push("Unit", first.unit, "first 28 days");
+    push(waive ? "Delivery & Set-Up (waived)" : "Delivery & Set-Up (one-time)", first.delivery, "first 28 days");
+    if (product.first.service != null) push("Service Fee", first.service, "first 28 days");
+    if (added) {
+      push("Unit", added.unit, "each added 28 days");
+      if (product.added.service != null) push("Service Fee", added.service, "each added 28 days");
+    }
+  });
+  const total = money(blocks.reduce((sum, block) => sum + block.first.total + (block.added ? block.added.total : 0), 0));
+  return { blocks, charges, total };
 }
 
 function catalogLines(mode) {
   const lines = [];
+  if (mode !== "events") return lines;
   RESTROOM_PRICES.units.forEach(unit => {
-    const block = unit[mode];
+    const block = unit.events;
     if (!block) return;
-    const variants = mode === "events" ? ["day", "weekend"] : ["first", "extra"];
+    const variants = ["day", "weekend"];
     variants.forEach(variant => {
       const spec = block[variant];
       if (!spec || spec.price == null) return;
@@ -355,8 +471,8 @@ function discOptions(max) {
 const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" };
 const labelStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#4a6b4a", marginBottom: 5, display: "block" };
 
-function SampleBanner() {
-  if (!RESTROOM_PRICES.samplePrices) return null;
+function SampleBanner({ mode }) {
+  if (!isSample(mode)) return null;
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 0 18px", padding: "12px 16px", borderRadius: 12, background: "#f59e0b", color: "#1a1203", fontWeight: 800, fontSize: 14, letterSpacing: 0.2, textAlign: "center", boxShadow: "0 8px 24px rgba(245,158,11,0.25)" }}>
       SAMPLE PRICES - not final. Do not quote these numbers to a customer until the price list is confirmed.
@@ -364,7 +480,17 @@ function SampleBanner() {
   );
 }
 
-function AppShell({ children }) {
+function ModeTabs({ mode, onMode }) {
+  return (
+    <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#121e12", borderRadius: 12, padding: 4 }}>
+      {[["construction", "Construction"], ["events", "Events"]].map(([id, label]) => (
+        <button key={id} type="button" onClick={() => onMode(id)} style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", background: mode === id ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: mode === id ? "#fff" : "#4a6b4a" }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+function AppShell({ mode, children }) {
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
       <div style={{ position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" }} />
@@ -379,24 +505,26 @@ function AppShell({ children }) {
           </div>
           <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12" }}>Dumpster pricing</a>
         </div>
-        <SampleBanner />
+        <SampleBanner mode={mode} />
         {children}
       </div>
     </div>
   );
 }
 
-function UnitPicker({ picked, onToggle, onContinue }) {
-  const selected = RESTROOM_PRICES.units.filter(unit => picked[unit.id]);
+function UnitPicker({ mode, onMode, picked, onToggle, onContinue }) {
+  const items = mode === "construction" ? RESTROOM_PRICES.construction : RESTROOM_PRICES.units;
+  const selected = items.filter(unit => picked[unit.id]);
   return (
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80", marginBottom: 8 }}>Step 1 of 2</div>
       <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Which unit do you need?</h1>
       <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18, maxWidth: 640 }}>
-        Click a unit to select it. Pick more than one if the job needs them. Quantity, Events or Construction pricing, and the job address come next. The price is the same for every address.
+        Click a unit to select it. Pick more than one if the job needs them. The job address is next. The price is the same for every address.
       </p>
+      <ModeTabs mode={mode} onMode={onMode} />
       <div className="unit-grid" role="group" aria-label="Units">
-        {RESTROOM_PRICES.units.map(unit => {
+        {items.map(unit => {
           const on = !!picked[unit.id];
           return (
             <button
@@ -413,10 +541,10 @@ function UnitPicker({ picked, onToggle, onContinue }) {
               }}
             >
               <div style={{ height: 168, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 10 }}>
-                <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} />
+                {unit.image ? <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} /> : <div style={{ fontSize: 42 }}>{unit.emoji || "＋"}</div>}
               </div>
               <div style={{ padding: "12px 12px 14px" }}>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{unit.name}</div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{(unit.emoji ? unit.emoji + " " : "") + unit.name}</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 3 }}>{unit.blurb}</div>
               </div>
               {on && (
@@ -442,17 +570,20 @@ function UnitPicker({ picked, onToggle, onContinue }) {
         {selected.length === 0 ? "Select a unit to continue" : "Continue to quote details · " + selected.length + (selected.length === 1 ? " unit" : " units")}
       </button>
       <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#4a6b4a" }}>
-        {RESTROOM_PRICES.units.length} units · delivery and extra service are added on the quote
+        {mode === "construction" ? "Construction price book · 28-day periods" : items.length + " event units · sample prices"}
       </div>
     </div>
   );
 }
 
-function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
+function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
+  const constructionMode = mode === "construction";
+  const sheet = constructionMode ? buildConstructionQuote(picked, opts) : null;
   const catalog = catalogLines(mode);
-  const ordered = catalog.filter(line => lines[line.key]);
-  const total = ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0);
-  const totalQty = ordered.reduce((sum, line) => sum + lines[line.key].qty, 0);
+  const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
+  const total = constructionMode ? sheet.total : ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0);
+  const totalQty = constructionMode ? sheet.blocks.reduce((sum, block) => sum + block.qty, 0) : ordered.reduce((sum, line) => sum + lines[line.key].qty, 0);
+  const hasQuote = constructionMode ? sheet.blocks.length > 0 : ordered.length > 0;
   const anyDisc = catalog.some(line => line.disc > 0);
   const estimateRef = useRef("");
   const [estimateNum, setEstimateNum] = useState("");
@@ -465,7 +596,7 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
 
   const ghlUrl = liveUrl(RESTROOM_WEBHOOK_URL);
   const sheetUrl = liveUrl(GOOGLE_SHEET_URL);
-  const missing = !draft.csrName ? "Select your name" : !draft.custName ? "Enter the customer name" : !draft.custPhone ? "Enter a phone number" : !draft.address.trim() ? "Enter the job address" : ordered.length === 0 ? "Select at least one line" : "";
+  const missing = !draft.csrName ? "Select your name" : !draft.custName ? "Enter the customer name" : !draft.custPhone ? "Enter a phone number" : !draft.address.trim() ? "Enter the job address" : !hasQuote ? "Select at least one line" : "";
   const canSend = !missing;
 
   function ensureEstimate() {
@@ -479,9 +610,35 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
   function useCase() { return mode === "events" ? "Event" : "Construction"; }
 
   // Same shape as the dumpster quote text. 🚻 stands in for the dumpster's 🟢.
-  function summaryParts() {
+  function constructionSummary() {
     const linesOut = [];
-    if (RESTROOM_PRICES.samplePrices) {
+    sheet.blocks.forEach((block, idx) => {
+      const p = block.product;
+      if (idx > 0) linesOut.push("");
+      linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
+      linesOut.push("Unit " + fmt(block.first.unit));
+      if (block.waive) linesOut.push("Delivery & Set-Up (one-time) $0.00 — waived, delivered with a unit");
+      else if (p.first.delivery) linesOut.push("Delivery & Set-Up (one-time) " + fmt(block.first.delivery));
+      if (p.first.service != null) linesOut.push("Service Fee (" + freqLabel(block.freq) + ") " + fmt(block.first.service));
+      linesOut.push("First 28 days " + fmt(block.first.total));
+      if (block.first.gap) linesOut.push("⚠️ Price book first-period total is " + fmt(p.first.listedTotal) + ". Unit + delivery + weekly service = " + fmt(money((p.first.unit || 0) + (p.first.delivery || 0) + (p.first.service || 0))) + ". Quote keeps that book total.");
+      let recur = "Each added 28 days: Unit " + fmt(block.addedRate.unitEach);
+      if (p.added.service != null) recur += " + Service Fee " + fmt(block.addedRate.serviceEach);
+      recur += " = " + fmt(block.addedRate.total);
+      linesOut.push(recur);
+      if (block.added) linesOut.push("Added 28 days (x" + block.extra + ") " + fmt(block.added.total));
+    });
+    linesOut.push("");
+    linesOut.push(RESTROOM_PRICES.rentalTerms);
+    linesOut.push("");
+    linesOut.push("💲 Total: " + fmt(sheet.total));
+    return linesOut;
+  }
+
+  function summaryParts() {
+    if (constructionMode) return constructionSummary();
+    const linesOut = [];
+    if (isSample(mode)) {
       linesOut.push("⚠️ SAMPLE PRICES - not final");
       linesOut.push("");
     }
@@ -498,7 +655,24 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
     return linesOut;
   }
 
+  function constructionHtml() {
+    const rows = [];
+    sheet.blocks.forEach(block => {
+      const p = block.product;
+      const title = (p.emoji ? p.emoji + " " : "") + p.name;
+      const row = (label, amount) => "<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-size:13px;'>" + label + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;white-space:nowrap;'>" + fmt(amount) + "</td></tr>";
+      rows.push("<tr><td colspan='2' style='padding:10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:800;'>" + title + " (x" + block.qty + ")</td></tr>");
+      rows.push(row("Unit", block.first.unit));
+      rows.push(row(block.waive ? "Delivery &amp; Set-Up (waived)" : "Delivery &amp; Set-Up (one-time)", block.first.delivery));
+      if (p.first.service != null) rows.push(row("Service Fee (" + freqLabel(block.freq) + ")", block.first.service));
+      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#2ECC40;font-weight:800;'>First 28 days</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#2ECC40;font-weight:800;'>" + fmt(block.first.total) + "</td></tr>");
+      if (block.added) rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;'>Added 28 days (x" + block.extra + ")</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;'>" + fmt(block.added.total) + "</td></tr>");
+    });
+    return "<p style='margin:0 0 8px;color:#8aaa8a;font-size:12px;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='padding:12px 10px;font-weight:800;color:#ffffff;'>Total</td><td style='padding:12px 10px;text-align:right;font-weight:800;color:#ffffff;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+  }
+
   function summaryHtml() {
+    if (constructionMode) return constructionHtml();
     const rows = [];
     ordered.forEach(line => {
       const info = lines[line.key];
@@ -510,12 +684,12 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
       rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;'>" + line.name + "</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;width:30px;'>" + info.qty + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;'>" + priceCell + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;white-space:nowrap;'>" + fmt(lineTotal) + "</td></tr>");
       rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
     });
-    const banner = RESTROOM_PRICES.samplePrices ? "<p style='margin:0 0 8px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
+    const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
     return banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
   }
 
   async function copyQuote() {
-    if (!ordered.length) return;
+    if (!hasQuote) return;
     setCopyError("");
     ensureEstimate();
     const text = summaryParts().join("\n");
@@ -545,13 +719,24 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
 
   function buildPayload(estNum) {
     const flat = {};
-    ordered.forEach((line, i) => {
+    const rows = constructionMode ? sheet.charges : ordered.map(line => {
       const info = lines[line.key];
+      return {
+        name: line.name,
+        qty: info.qty,
+        finalPrice: info.finalPrice,
+        lineTotal: info.finalPrice * info.qty,
+        serviceFrequency: info.serviceFrequency,
+        rentalPeriod: info.rentalPeriod,
+      };
+    });
+    rows.forEach((info, i) => {
       const n = i + 1;
-      flat["unit_" + n + "_name"] = line.name;
+      const lineTotal = info.lineTotal != null ? info.lineTotal : info.finalPrice * info.qty;
+      flat["unit_" + n + "_name"] = info.name;
       flat["unit_" + n + "_qty"] = info.qty;
-      flat["unit_" + n + "_price_each"] = info.finalPrice.toFixed(2);
-      flat["unit_" + n + "_line_total"] = (info.finalPrice * info.qty).toFixed(2);
+      flat["unit_" + n + "_price_each"] = Number(info.finalPrice).toFixed(2);
+      flat["unit_" + n + "_line_total"] = Number(lineTotal).toFixed(2);
       flat["unit_" + n + "_service_frequency"] = info.serviceFrequency;
       flat["unit_" + n + "_rental_period"] = info.rentalPeriod;
     });
@@ -620,9 +805,9 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
   }
 
   const modeBlurb = mode === "events"
-    ? "Events are priced per day or for a Friday–Sunday weekend. Service and delivery are their own lines."
-    : "Construction is priced per 28-day cycle. The first cycle includes weekly service. An added cycle is a separate line.";
-  const preview = ordered.length ? summaryParts().join("\n") : "";
+    ? "Events prices are still samples. A day rate and a weekend rate are separate lines."
+    : RESTROOM_PRICES.rentalTerms;
+  const preview = hasQuote ? summaryParts().join("\n") : "";
 
   return (
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
@@ -633,11 +818,7 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
       <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 6 }}>Quote details</h1>
       <p style={{ fontSize: 13, color: "#6b8f6b", marginBottom: 14 }}>Job address is free text. Nothing on this page looks up a zip code.</p>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#121e12", borderRadius: 12, padding: 4 }}>
-        {[["events", "Events"], ["construction", "Construction"]].map(([id, label]) => (
-          <button key={id} type="button" onClick={() => onMode(id)} style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", background: mode === id ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: mode === id ? "#fff" : "#4a6b4a" }}>{label}</button>
-        ))}
-      </div>
+      <ModeTabs mode={mode} onMode={onMode} />
       <div style={{ fontSize: 13, color: "#86a086", marginBottom: 16, lineHeight: 1.45 }}>{modeBlurb}</div>
 
       <div style={{ borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", padding: 20 }}>
@@ -687,8 +868,60 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
         </div>
 
         <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Units</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        {constructionMode && sheet.blocks.map(block => {
+          const p = block.product;
+          const opt = opts[p.id] || { qty: block.qty, freq: block.freq, extra: block.extra };
+          return (
+            <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                {p.image ? <img src={p.image} alt="" style={{ width: 42, height: 42, objectFit: "contain", background: "#f4f8f7", borderRadius: 6 }} /> : <div style={{ width: 42, height: 42, borderRadius: 6, background: "#163016", display: "flex", alignItems: "center", justifyContent: "center" }}>{p.emoji || "+"}</div>}
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{(p.emoji ? p.emoji + " " : "") + p.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                  <button type="button" onClick={() => onOpt(p.id, { qty: Math.max(1, opt.qty - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                  <span style={{ minWidth: 18, textAlign: "center", fontWeight: 800 }}>{opt.qty}</span>
+                  <button type="button" onClick={() => onOpt(p.id, { qty: Math.min(10, opt.qty + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                </div>
+              </div>
+              {p.first.service != null && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {[1, 2, 3].map(mult => (
+                    <button key={mult} type="button" onClick={() => onOpt(p.id, { freq: mult })} style={{ padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: opt.freq === mult ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#121e12", border: opt.freq === mult ? "2px solid #4ade80" : "1px solid #2d4a2d", color: opt.freq === mult ? "#fff" : "#86a086" }}>{freqLabel(mult)}</button>
+                  ))}
+                </div>
+              )}
+              {[
+                ["Unit", block.first.unit],
+                [block.waive ? "Delivery & Set-Up (one-time) — waived, delivered with a unit" : "Delivery & Set-Up (one-time)", block.first.delivery],
+                p.first.service != null ? ["Service Fee (" + freqLabel(block.freq) + ")", block.first.service] : null,
+              ].filter(Boolean).map(([label, amount]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, color: "#d1e7d1", padding: "3px 0" }}>
+                  <span>{label}</span><span style={{ fontFamily: "monospace" }}>{fmt(amount)}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 800, color: "#4ade80", paddingTop: 6 }}>
+                <span>First 28 days</span><span style={{ fontFamily: "monospace" }}>{fmt(block.first.total)}</span>
+              </div>
+              {block.first.gap ? (
+                <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", color: "#fde68a", fontSize: 12, lineHeight: 1.45 }}>
+                  TODO: price book first-period total is {fmt(p.first.listedTotal)}. Unit + delivery + weekly service = {fmt(money((p.first.unit || 0) + (p.first.delivery || 0) + (p.first.service || 0)))}. This quote uses the book total until you confirm.
+                </div>
+              ) : null}
+              <div style={{ marginTop: 8, fontSize: 12, color: "#86a086" }}>
+                Each added 28 days: Unit {fmt(block.addedRate.unitEach)}{p.added.service != null ? " + Service Fee " + fmt(block.addedRate.serviceEach) : ""} = {fmt(block.addedRate.total)}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote</span>
+                <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, opt.extra - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                <span style={{ fontWeight: 800 }}>{opt.extra || 0}</span>
+                <button type="button" onClick={() => onOpt(p.id, { extra: Math.min(10, (opt.extra || 0) + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                {block.added ? <span style={{ marginLeft: "auto", color: "#4ade80", fontWeight: 800 }}>{fmt(block.added.total)}</span> : null}
+              </div>
+            </div>
+          );
+        })}
+        {!constructionMode && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Units</div>}
+        {!constructionMode && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
           {catalog.filter(line => line.kind === "unit").map(line => {
             const on = !!lines[line.key];
             return (
@@ -697,9 +930,9 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
               </button>
             );
           })}
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Add-ons</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+        </div>}
+        {!constructionMode && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Add-ons</div>}
+        {!constructionMode && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
           {catalog.filter(line => line.kind === "addon").map(line => {
             const on = !!lines[line.key];
             return (
@@ -708,9 +941,9 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
               </button>
             );
           })}
-        </div>
+        </div>}
 
-        {ordered.map(line => {
+        {!constructionMode && ordered.map(line => {
           const info = lines[line.key];
           return (
             <div key={line.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
@@ -738,6 +971,7 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
           );
         })}
 
+        {constructionMode && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: "#fde68a", lineHeight: 1.45 }}>{RESTROOM_PRICES.rentalTerms}</div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#86a086" }}>Quote total ({totalQty} {totalQty === 1 ? "item" : "items"})</span>
           <span style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" }}>{fmt(total)}</span>
@@ -758,7 +992,7 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
         <button type="button" onClick={handleSend} disabled={!canSend || !ghlUrl || sending} style={{ width: "100%", marginTop: 14, padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && ghlUrl && !sending ? "pointer" : "not-allowed", background: canSend && ghlUrl && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend && ghlUrl ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: canSend && ghlUrl ? "0 4px 20px rgba(245,158,11,0.2)" : "none" }}>
           {sending ? "Sending..." : (draft.custEmail ? "📧 Send Quote via Email & SMS" : "📧 Send Quote via SMS")}
         </button>
-        <button type="button" onClick={copyQuote} disabled={!ordered.length} style={{ width: "100%", marginTop: 8, padding: "10px 0", borderRadius: 12, cursor: ordered.length ? "pointer" : "not-allowed", background: "#121e12", border: "1px solid #2d4a2d", color: ordered.length ? "#4ade80" : "#666", fontSize: 13, fontWeight: 700 }}>
+        <button type="button" onClick={copyQuote} disabled={!hasQuote} style={{ width: "100%", marginTop: 8, padding: "10px 0", borderRadius: 12, cursor: hasQuote ? "pointer" : "not-allowed", background: "#121e12", border: "1px solid #2d4a2d", color: hasQuote ? "#4ade80" : "#666", fontSize: 13, fontWeight: 700 }}>
           {copied ? "Copied" : "Copy quote"}
         </button>
         {!ghlUrl && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#fde68a" }}>GHL not connected yet</div>}
@@ -786,7 +1020,18 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
               </tr>
             </thead>
             <tbody>
-              {catalog.map((line, i) => (
+              {constructionMode ? RESTROOM_PRICES.construction.map((p, i) => {
+                const first = periodMath(p.first, 1, 1, false);
+                const added = periodMath(p.added, 1, 1, true);
+                return (
+                  <tr key={p.id} style={{ background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)" }}>
+                    <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{(p.emoji ? p.emoji + " " : "") + p.name}</td>
+                    <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>Unit {fmt(p.first.unit)}{p.first.delivery ? " + delivery " + fmt(p.first.delivery) : ""}{p.first.service != null ? " + service " + fmt(p.first.service) : ""}</td>
+                    <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(first.total)}{p.first.listedTotal != null ? " book" : ""}</td>
+                    <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Added 28 days {fmt(added.total)}{p.waiveDeliveryWithUnit ? ". Delivery waived with a unit." : ""}</td>
+                  </tr>
+                );
+              }) : catalog.map((line, i) => (
                 <tr key={line.key} style={{ background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)" }}>
                   <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{line.name}{line.kind === "addon" ? " · add-on" : ""}</td>
                   <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(line.price)}</td>
@@ -823,9 +1068,10 @@ function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty
 
 function App() {
   const [screen, setScreen] = useState("pick");
-  const [mode, setMode] = useState("events");
+  const [mode, setMode] = useState("construction");
   const [picked, setPicked] = useState({});
   const [lines, setLines] = useState({});
+  const [opts, setOpts] = useState({});
   const [draft, setDraftState] = useState({
     csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "",
   });
@@ -834,6 +1080,11 @@ function App() {
 
   function togglePick(id) {
     setPicked(prev => ({ ...prev, [id]: !prev[id] }));
+    setOpts(prev => prev[id] ? prev : { ...prev, [id]: { qty: 1, freq: 1, extra: 0 } });
+  }
+
+  function onOpt(id, patch) {
+    setOpts(prev => ({ ...prev, [id]: { qty: 1, freq: 1, extra: 0, ...(prev[id] || {}), ...patch } }));
   }
 
   function continueToQuote() {
@@ -846,7 +1097,12 @@ function App() {
 
   function changeMode(nextMode) {
     if (nextMode === mode) return;
-    setLines(prev => rebaseLines(mode, nextMode, prev, picked));
+    const allow = {};
+    (nextMode === "construction" ? RESTROOM_PRICES.construction : RESTROOM_PRICES.units).forEach(item => { allow[item.id] = true; });
+    const nextPicked = {};
+    Object.keys(picked).forEach(id => { if (picked[id] && allow[id]) nextPicked[id] = true; });
+    setPicked(nextPicked);
+    if (nextMode === "events") setLines(mergeLines("events", Object.keys(nextPicked), lines));
     setMode(nextMode);
   }
 
@@ -883,22 +1139,25 @@ function App() {
 
   function startOver() {
     setScreen("pick");
-    setMode("events");
+    setMode("construction");
     setPicked({});
     setLines({});
+    setOpts({});
     setDraftState({ csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "" });
     window.scrollTo(0, 0);
   }
 
   return (
-    <AppShell>
+    <AppShell mode={mode}>
       {screen === "pick" ? (
-        <UnitPicker picked={picked} onToggle={togglePick} onContinue={continueToQuote} />
+        <UnitPicker mode={mode} onMode={changeMode} picked={picked} onToggle={togglePick} onContinue={continueToQuote} />
       ) : (
         <QuoteDetails
           mode={mode}
           picked={picked}
           lines={lines}
+          opts={opts}
+          onOpt={onOpt}
           onMode={changeMode}
           onBack={() => { setScreen("pick"); window.scrollTo(0, 0); }}
           onToggleLine={toggleLine}

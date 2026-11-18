@@ -48,6 +48,7 @@ const COMPANY_NAME = "The Green Dumpster/All Site Rentals";
 const COMPANY_PHONE = "(818) 960-1941";
 const COMPANY_PHONE_TEL = "tel:+18189601941";
 const COMPANY_EMAIL_FALLBACK = "info@thegreendumpster.com";
+const OFFICE_EMAIL = "office@thegreendumpster.com";
 
 function companyEmailFor(csrName) {
   return (csrName && CSR_EMAILS[csrName]) || COMPANY_EMAIL_FALLBACK;
@@ -596,7 +597,7 @@ function AppShell({ mode, email, children }) {
             <div style={{ fontSize: 13, fontWeight: 700, color: "#86a086", marginTop: 2 }}>Portable Restroom Quote</div>
             <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 14, fontWeight: 700 }}>
               <a href={COMPANY_PHONE_TEL} style={{ color: "#86efac", textDecoration: "none" }}>{COMPANY_PHONE}</a>
-              <a href={"mailto:" + email} style={{ color: "#86efac", textDecoration: "none" }}>{email}</a>
+              <a href={"mailto:" + OFFICE_EMAIL} style={{ color: "#86efac", textDecoration: "none" }}>{OFFICE_EMAIL}</a>
             </div>
           </div>
           <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>

@@ -68,8 +68,14 @@ function contactHtml(email) {
 // Do not paste the dumpster webhook. That workflow is "CSR Dumpster Quote"
 // and it sends the dumpster email and SMS.
 const RESTROOM_WEBHOOK_URL = "";
-// Optional. Leave empty to skip the sheet log. Not the dumpster sheet URL.
+// Restroom quote log. Leave empty until a separate Apps Script web app is deployed
+// from restrooms/google-sheet-script.js onto its own spreadsheet, tab "Restroom Estimates".
+// Do not paste the dumpster GOOGLE_SHEET_URL. That script writes to the dumpster
+// spreadsheet's active tab and has no sheet or tab parameter.
 const GOOGLE_SHEET_URL = "";
+// TODO: paste the Google Sheet URL CSRs open to look up a past restroom estimate.
+// That is the spreadsheet link, not the Apps Script /exec URL. Leave empty to hide the link.
+const RESTROOM_ESTIMATES_URL = "";
 
 // =====================================================
 // RESTROOM_PRICES — edit this object in the GitHub web editor.
@@ -600,7 +606,12 @@ function AppShell({ mode, email, children }) {
               <a href={"mailto:" + OFFICE_EMAIL} style={{ color: "#86efac", textDecoration: "none" }}>{OFFICE_EMAIL}</a>
             </div>
           </div>
-          <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+            {liveUrl(RESTROOM_ESTIMATES_URL) ? (
+              <a href={liveUrl(RESTROOM_ESTIMATES_URL)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12" }}>View past estimates</a>
+            ) : null}
+            <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>
+          </div>
         </div>
         <SampleBanner mode={mode} />
         {children}
@@ -991,7 +1002,20 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
           method: "POST",
           headers: { "Content-Type": "application/json" },
           mode: "no-cors",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            estimate_number: payload.estimate_number,
+            timestamp: payload.timestamp,
+            csr_name: payload.csr_name,
+            csr_email: payload.csr_email,
+            customer_name: payload.customer_name,
+            customer_phone: payload.customer_phone,
+            customer_email: payload.customer_email,
+            job_address: payload.job_address,
+            use_case: payload.use_case,
+            details: payload.quote_summary,
+            total_quote: payload.total_quote,
+            recurring_28_day_total: payload.recurring_28_day_total || "",
+          }),
         }).catch(() => {});
       }
       setPosted(true);

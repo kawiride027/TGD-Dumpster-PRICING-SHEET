@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Green Dumpster/All Site Rentals — Portable Restroom Quote</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚻</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0f0a; }
+  input::placeholder, textarea::placeholder { color: #3d5a3d !important; font-weight: 400 !important; }
+  select { color: #fff; }
+  button, input, select, textarea { font-family: inherit; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes successPulse { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0f0a; }
+  ::-webkit-scrollbar-thumb { background: #2d4a2d; border-radius: 3px; }
+  .unit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .q-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .q-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .price-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  @media (max-width: 800px) {
+    .unit-grid { grid-template-columns: 1fr 1fr; }
+    .q-3, .q-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 460px) {
+    .unit-grid { grid-template-columns: 1fr; }
+  }
+  .brand-lockup { display: block; width: min(100%, 520px); height: auto; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef } = React;
+
+// =====================================================
+// CONFIG — restroom CSR list. Evelyn is not on this list.
+// The dumpster app's CSR list is edited separately. Keep these two arrays in sync with each other.
+// =====================================================
+const CSR_NAMES = ["Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
+const CSR_EMAILS = {"Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
+const COMPANY_NAME = "The Green Dumpster/All Site Rentals";
+const COMPANY_PHONE = "(818) 960-1941";
+const COMPANY_PHONE_TEL = "tel:+18189601941";
+const COMPANY_EMAIL_FALLBACK = "info@thegreendumpster.com";
+const OFFICE_EMAIL = "office@thegreendumpster.com";
+
+function companyEmailFor(csrName) {
+  return (csrName && CSR_EMAILS[csrName]) || COMPANY_EMAIL_FALLBACK;
+}
+
+function contactHtml(email) {
+  const text = "font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;";
+  const link = "color:#ffffff;font-size:14px;line-height:20px;text-decoration:none;";
+  return "<p style='margin:0 0 4px;" + text + "font-size:15px;font-weight:800;'>" + COMPANY_NAME + "</p>"
+    + "<p style='margin:0 0 2px;" + text + "'><a href='" + COMPANY_PHONE_TEL + "' style='" + link + "'>" + COMPANY_PHONE + "</a></p>"
+    + "<p style='margin:0 0 8px;" + text + "'><a href='mailto:" + email + "' style='" + link + "'>" + email + "</a></p>";
+}
+
+// LeadConnector inbound webhook for the restroom follow-up workflow.
+// Same POST as the dumpster app (JSON, Content-Type: application/json) but a
+// different trigger. Leave this empty until that workflow exists.
+// Do not paste the dumpster webhook. That workflow is "CSR Dumpster Quote"
+// and it sends the dumpster email and SMS.
+const RESTROOM_WEBHOOK_URL = "";
+// Same Apps Script as the dumpster quote log. It writes the active tab of the
+// dumpster spreadsheet and only reads the 12 dumpster field names below.
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxVXMApmhBAOZ_T-jrttCsytZ6d7cNMVq4pKghpOj1_SHw_kzMhXk8xlnF6o4mQY0x4/exec";
+// Spreadsheet CSRs open to look up a past estimate. Same workbook as dumpster quotes.
+const RESTROOM_ESTIMATES_URL = "https://docs.google.com/spreadsheets/d/1oAwH55Eu-bUkbEzIxqH_U7dSwjw3z1iQEWVcArFtJ0I/edit";
+
+// =====================================================
+// RESTROOM_PRICES — edit this object in the GitHub web editor.
+//
+// samplePrices is per mode. Events is still a placeholder list.
+// Construction is the price book: samplePrices.construction is false, so that
+// mode has no SAMPLE PRICES banner and no sample warning in the quote text.
+// disc: max discount in dollars. Must be a multiple of 5. 0 means no discount.
+// price: null hides that events line.
+//
+// Construction billing is 28-day periods. The first period is Unit + one-time
+// Delivery & Set-Up + Service Fee. Each added 28 days is Unit + Service Fee.
+// Weekly is the default. 2x per week doubles the service fee. 3x triples it.
+// Unit and delivery do not change with frequency.
+// Photos in restrooms/img/ are copies of All Site Rentals product photos.
+// =====================================================
+const RESTROOM_PRICES = {
+  samplePrices: { events: true, construction: false },
+  // PLACEHOLDER. One Events delivery charge per drop, not per unit.
+  // Change this single number when a real event delivery rate exists.
+  eventsDelivery: 99,
+  rentalTerms: "Billing is in 28-day periods. Recurring billing starts after the first 28 days.",
+  brokerNote: "Restrooms are brokered to Global Sanitation or SoCal. Quote the customer-facing price only. Do not discuss vendor cost.",
+  units: [
+    {
+      id: "standard",
+      name: "Standard Unit",
+      blurb: "Built for job sites",
+      image: "img/standard-restroom.webp",
+      imageAlt: "Teal standard portable restroom",
+      disc: 0,
+      events: {
+        day: { price: 175, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Delivery and set-up is one charge per drop." },
+        weekend: { price: 375, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+    },
+    {
+      id: "deluxe-sink",
+      name: "Deluxe with Sink",
+      blurb: "Sink inside the unit",
+      image: "img/deluxe-restroom-with-sink.webp",
+      imageAlt: "Teal deluxe portable restroom with an interior sink",
+      disc: 0,
+      events: {
+        day: { price: 225, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Sink inside the unit. Delivery and set-up is one charge per drop." },
+        weekend: { price: 475, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+    },
+    {
+      id: "deluxe-flush",
+      name: "Deluxe Flushable",
+      blurb: "Flushing toilet and sink",
+      image: "img/deluxe-flushable-restroom-with-sink.webp",
+      imageAlt: "Deluxe flushable portable restroom",
+      disc: 0,
+      events: {
+        day: { price: 275, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Flushing toilet and sink. Delivery and set-up is one charge per drop." },
+        weekend: { price: 575, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+    },
+    {
+      id: "ada",
+      name: "ADA Restroom",
+      blurb: "Wheelchair accessible",
+      image: "img/ada-restroom.webp",
+      imageAlt: "Gray ADA portable restroom with a wheelchair symbol",
+      disc: 0,
+      events: {
+        day: { price: 200, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Ground-level accessible unit. Delivery and set-up is one charge per drop." },
+        weekend: { price: 425, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+    },
+    {
+      id: "handwash",
+      name: "Hand-Wash Station",
+      blurb: "Portable sink for crews and guests",
+      image: "img/handwashing-station.webp",
+      imageAlt: "Gray portable hand-washing station",
+      disc: 0,
+      events: {
+        day: { price: 85, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Soap and paper towels stocked at delivery." },
+        weekend: { price: 175, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 restock." },
+      },
+    },
+    {
+      id: "tray",
+      name: "Containment Tray",
+      blurb: "Add-on. Event rate is still a sample.",
+      image: "img/containment-tray.jpg",
+      imageAlt: "Black plastic containment tray",
+      disc: 0,
+      events: {
+        day: { price: 25, /* PLACEHOLDER — no event price yet */ bill: "per day", includes: "PLACEHOLDER event rate. Not a confirmed price." },
+        weekend: { price: 45, /* PLACEHOLDER — no event price yet */ bill: "weekend (Fri–Sun)", includes: "PLACEHOLDER event rate. Not a confirmed price." },
+      },
+    },
+  ],
+  // Long-term / construction price book. Events does not use this list.
+  // Quote totals are the sum of the line items. Weekly service is the default.
+  construction: [
+    {
+      id: "standard",
+      name: "Standard Portable Restroom",
+      emoji: "🚻",
+      blurb: "Job-site unit",
+      image: "img/standard-restroom.webp",
+      imageAlt: "Teal standard portable restroom",
+      // First 28 days: $10 + $99 + $159.40 = $268.40. Added period service stays $158.98.
+      first: { unit: 10.00, delivery: 99.00, service: 159.40 },
+      added: { unit: 10.00, service: 158.98 },
+    },
+    {
+      id: "deluxe-sink",
+      name: "Deluxe with Sink",
+      emoji: "🚻",
+      blurb: "Sink inside the unit",
+      image: "img/deluxe-restroom-with-sink.webp",
+      imageAlt: "Teal deluxe portable restroom with an interior sink",
+      // PLACEHOLDER: awaiting Dustin's real Deluxe w/ Sink construction price
+      pricePending: true,
+      first: { unit: 10.00, delivery: 99.00, service: 207.47 },
+      added: { unit: 10.00, service: 207.47 },
+    },
+    {
+      id: "deluxe-flush",
+      name: "Deluxe Flushable",
+      emoji: "🚻",
+      blurb: "Flushing toilet and sink",
+      image: "img/deluxe-flushable-restroom-with-sink.webp",
+      imageAlt: "Deluxe flushable portable restroom",
+      first: { unit: 10.00, delivery: 99.00, service: 207.47 },
+      added: { unit: 10.00, service: 207.47 },
+    },
+    {
+      id: "handwash",
+      name: "Handwash Station",
+      emoji: "🚿",
+      blurb: "Hand-wash station",
+      image: "img/handwashing-station.webp",
+      imageAlt: "Portable hand-washing station",
+      first: { unit: 10.00, delivery: 99.00, service: 172.40 },
+      added: { unit: 10.00, service: 172.40 },
+    },
+    {
+      id: "ada",
+      name: "ADA Portable Restroom",
+      emoji: "♿",
+      blurb: "Wheelchair accessible",
+      image: "img/ada-restroom.webp",
+      imageAlt: "ADA portable restroom",
+      first: { unit: 10.00, delivery: 99.00, service: 215.00 },
+      added: { unit: 10.00, service: 215.00 },
+    },
+    {
+      id: "tray",
+      name: "Containment Tray",
+      emoji: "",
+      blurb: "Add-on. Delivery is waived when it goes out with a unit.",
+      image: "img/containment-tray.jpg",
+      imageAlt: "Black plastic containment tray",
+      addon: true,
+      waiveDeliveryWithUnit: true,
+      first: { unit: 15.00, delivery: 99.00 },
+      added: { unit: 15.00 },
+    },
+  ],
+  // Dustin 11/16/2026 pricing
+  // Construction only. Not an event product. Service days do not multiply these lines.
+  // Hand dig is always charged. The $225 includes delivery and pickup. No removal fee.
+  poleNotes: [
+    "Permits not included, customer pulls the permit.",
+    "DigAlert 811 and SCE/LADWP approval required.",
+    "Pickup is automatic on the due date with 7-day notice.",
+    "Cancellation fee $235.",
+  ],
+  powerPoles: [
+    {
+      id: "pole-100",
+      kind: "pole",
+      name: "100A Temp Power Pole",
+      emoji: "⚡",
+      blurb: "Temporary 100 amp power. Service days do not change this price.",
+      install: 1180,
+      handDig: 75,
+      delivery: 225,
+      period: 110,
+    },
+    {
+      id: "pole-200",
+      kind: "pole",
+      name: "200A Temp Power Pole",
+      emoji: "⚡",
+      blurb: "Temporary 200 amp power. Service days do not change this price.",
+      install: 1330,
+      handDig: 75,
+      delivery: 225,
+      period: 110,
+    },
+  ],
+  addons: [
+    {
+      id: "service",
+      name: "Extra Service / Pump-Out",
+      blurb: "One extra pump-out and restock",
+      disc: 0,
+      price: 95, /* PLACEHOLDER — events only. Construction service is in the price book. */
+      bill: "each visit",
+      includes: "One extra pump-out and restock.",
+    },
+  ],
+};
+
+// =====================================================
+// ESTIMATE NUMBER — TGD-PR-YYYYMMDD-XXXX
+// PR = portable restroom, so it is not read as a dumpster estimate (TGD-).
+// =====================================================
+function generateEstimateNumber() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = String(Math.floor(1000 + Math.random() * 9000));
+  return "TGD-PR-" + y + m + d + "-" + rand;
+}
+
+function liveUrl(url) {
+  return String(url || "").trim();
+}
+
+function serviceFrequency(unitId, variant) {
+  if (unitId === "service") return "Per visit";
+  if (unitId === "delivery") return "Per drop";
+  if (unitId === "handwash") {
+    if (variant === "day") return "None included";
+    if (variant === "weekend") return "1 restock";
+    return "Weekly restock";
+  }
+  if (variant === "day") return "None included";
+  if (variant === "weekend") return "1 service";
+  return "Weekly";
+}
+
+function fmt(v) {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return "";
+  return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function money(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+function isSample(mode) {
+  const flag = RESTROOM_PRICES.samplePrices;
+  if (flag && typeof flag === "object") return !!flag[mode];
+  return !!flag;
+}
+
+function constructionDateLabel(blocks) {
+  const hasPole = blocks.some(block => block.pole);
+  const hasRestroom = blocks.some(block => !block.pole);
+  if (hasPole && hasRestroom) return "Requested Delivery / Installation Date";
+  if (hasPole) return "Requested Installation Date";
+  return "Requested Delivery Date";
+}
+
+function freqLabel(days) {
+  const n = days || 1;
+  return n === 1 ? "1 day/week" : n + " days/week";
+}
+
+// One 28-day period for one product. qty is unit count.
+// freqMult scales the service fee only. Delivery is waived when asked.
+// A higher service frequency multiplies the service fee only.
+// listedTotal, if set, replaces the weekly line sum. Construction rates do not use it.
+function periodMath(spec, qty, freqMult, waiveDelivery) {
+  const mult = freqMult || 1;
+  const unitEach = spec.unit || 0;
+  const serviceBase = spec.service || 0;
+  const serviceEach = serviceBase * mult;
+  const deliveryEach = waiveDelivery ? 0 : (spec.delivery || 0);
+  const linesEach = money(unitEach + serviceEach + deliveryEach);
+  const weeklyLines = money(unitEach + serviceBase + (spec.delivery || 0));
+  const gapEach = spec.listedTotal != null ? money(spec.listedTotal - weeklyLines) : 0;
+  const totalEach = money(linesEach + gapEach);
+  return {
+    unit: money(unitEach * qty),
+    service: money(serviceEach * qty),
+    delivery: money(deliveryEach * qty),
+    linesSum: money(linesEach * qty),
+    gap: money(gapEach * qty),
+    total: money(totalEach * qty),
+    unitEach: unitEach,
+    serviceEach: serviceEach,
+    deliveryEach: deliveryEach,
+  };
+}
+
+function poleAmounts(pole, qty) {
+  const count = qty || 1;
+  const install = money(pole.install * count);
+  const handDig = money(pole.handDig * count);
+  const delivery = money(pole.delivery * count);
+  const period = money(pole.period * count);
+  return { install, handDig, delivery, period, total: money(install + handDig + delivery + period) };
+}
+
+function buildConstructionQuote(picked, opts, serviceDays) {
+  const selected = RESTROOM_PRICES.construction.filter(p => picked[p.id]);
+  const withUnit = selected.some(p => !p.addon);
+  const blocks = [];
+  const charges = [];
+  selected.forEach(product => {
+    const opt = opts[product.id] || { qty: 1, extra: 0 };
+    const qty = Math.min(10, Math.max(1, opt.qty || 1));
+    const freq = product.addon || product.first.service == null ? 1 : (serviceDays || 1);
+    const extra = Math.min(10, Math.max(0, opt.extra || 0));
+    const waive = !!(product.waiveDeliveryWithUnit && withUnit);
+    const first = periodMath(product.first, qty, freq, waive);
+    const added = extra > 0 ? periodMath(product.added, qty * extra, freq, true) : null;
+    const addedRate = periodMath(product.added, 1, freq, true);
+    blocks.push({ product, qty, freq, extra, waive, first, added, addedRate });
+    const freqName = product.first.service == null ? "" : freqLabel(freq);
+    const push = (label, amount, period) => {
+      charges.push({
+        name: product.name + " — " + label,
+        qty: qty,
+        finalPrice: amount / qty,
+        lineTotal: amount,
+        serviceFrequency: freqName || "n/a",
+        rentalPeriod: period,
+      });
+    };
+    push("Unit", first.unit, "first 28 days");
+    push(waive ? "Delivery & Set-Up (waived)" : "Delivery & Set-Up (one-time)", first.delivery, "first 28 days");
+    if (product.first.service != null) push("Service Fee", first.service, "first 28 days");
+    if (added) {
+      push("Unit", added.unit, "each added 28 days");
+      if (product.added.service != null) push("Service Fee", added.service, "each added 28 days");
+    }
+  });
+  RESTROOM_PRICES.powerPoles.filter(p => picked[p.id]).forEach(pole => {
+    const opt = opts[pole.id] || { qty: 1, extra: 0 };
+    const qty = Math.min(10, Math.max(1, opt.qty || 1));
+    const extra = Math.min(10, Math.max(0, opt.extra || 0));
+    const first = poleAmounts(pole, qty);
+    const addedTotal = extra > 0 ? money(pole.period * qty * extra) : 0;
+    const added = extra > 0 ? { total: addedTotal, period: addedTotal } : null;
+    const addedRate = { total: pole.period };
+    blocks.push({ product: pole, pole: true, qty, extra, first, added, addedRate });
+    const pushPole = (label, each, period) => {
+      charges.push({
+        name: pole.name + " — " + label,
+        qty: qty,
+        finalPrice: each,
+        lineTotal: money(each * qty),
+        serviceFrequency: "n/a",
+        rentalPeriod: period,
+      });
+    };
+    pushPole("Install", pole.install, "first 28 days");
+    pushPole("Hand Dig", pole.handDig, "first 28 days");
+    pushPole("Setup/Delivery & Pickup", pole.delivery, "first 28 days");
+    pushPole("First 28 days", pole.period, "first 28 days");
+    if (extra > 0) {
+      charges.push({
+        name: pole.name + " — Added 28 days",
+        qty: qty * extra,
+        finalPrice: pole.period,
+        lineTotal: addedTotal,
+        serviceFrequency: "n/a",
+        rentalPeriod: "each added 28 days",
+      });
+    }
+  });
+  const total = money(blocks.reduce((sum, block) => sum + block.first.total + (block.added ? block.added.total : 0), 0));
+  const recurring = money(blocks.reduce((sum, block) => sum + block.addedRate.total * block.qty, 0));
+  return { blocks, charges, total, recurring };
+}
+
+function catalogLines(mode) {
+  const lines = [];
+  if (mode !== "events") return lines;
+  RESTROOM_PRICES.units.forEach(unit => {
+    const block = unit.events;
+    if (!block) return;
+    const variants = ["day", "weekend"];
+    variants.forEach(variant => {
+      const spec = block[variant];
+      if (!spec || spec.price == null) return;
+      lines.push({
+        key: unit.id + ":" + variant,
+        unitId: unit.id,
+        variant: variant,
+        kind: "unit",
+        name: unit.name,
+        image: unit.image,
+        price: spec.price,
+        bill: spec.bill,
+        rentalPeriod: spec.bill,
+        serviceFrequency: serviceFrequency(unit.id, variant),
+        includes: spec.includes,
+        disc: unit.disc || 0,
+      });
+    });
+  });
+  RESTROOM_PRICES.addons.forEach(addon => {
+    if (addon.price == null) return;
+    lines.push({
+      key: addon.id,
+      unitId: addon.id,
+      variant: "addon",
+      kind: "addon",
+      name: addon.name,
+      image: "",
+      price: addon.price,
+      bill: addon.bill,
+      rentalPeriod: addon.bill,
+      serviceFrequency: serviceFrequency(addon.id, "addon"),
+      includes: addon.includes,
+      disc: addon.disc || 0,
+    });
+  });
+  return lines;
+}
+
+function primaryKey(mode, unitId) {
+  return unitId + ":" + (mode === "events" ? "day" : "first");
+}
+
+function makeState(line, qty, discount) {
+  const maxDisc = line.disc || 0;
+  const discAmt = Math.min(maxDisc, Math.max(0, discount || 0));
+  const q = Math.min(10, Math.max(1, qty || 1));
+  return {
+    basePrice: line.price,
+    discount: discAmt,
+    maxDisc: maxDisc,
+    finalPrice: line.price - discAmt,
+    qty: q,
+    name: line.name,
+    bill: line.bill,
+    rentalPeriod: line.rentalPeriod,
+    serviceFrequency: line.serviceFrequency,
+    includes: line.includes,
+    kind: line.kind,
+    image: line.image,
+  };
+}
+
+function mergeLines(mode, unitIds, prev) {
+  const catalog = catalogLines(mode);
+  const byKey = {};
+  catalog.forEach(line => { byKey[line.key] = line; });
+  const idSet = {};
+  unitIds.forEach(id => { idSet[id] = true; });
+  const next = {};
+  Object.keys(prev || {}).forEach(key => {
+    const line = byKey[key];
+    if (!line || !prev[key]) return;
+    if (line.kind === "addon" || idSet[line.unitId]) {
+      next[key] = makeState(line, prev[key].qty, prev[key].discount);
+    }
+  });
+  unitIds.forEach(id => {
+    const key = primaryKey(mode, id);
+    if (!next[key] && byKey[key]) next[key] = makeState(byKey[key], 1, 0);
+  });
+  return next;
+}
+
+function rebaseLines(prevMode, nextMode, prev, picked) {
+  const oldCatalog = catalogLines(prevMode);
+  const oldByKey = {};
+  oldCatalog.forEach(line => { oldByKey[line.key] = line; });
+  const qtyByUnit = {};
+  Object.keys(prev || {}).forEach(key => {
+    const line = oldByKey[key];
+    if (!line || line.kind !== "unit" || !prev[key]) return;
+    const isPrimary = line.variant === (prevMode === "events" ? "day" : "first");
+    if (isPrimary || qtyByUnit[line.unitId] == null) qtyByUnit[line.unitId] = prev[key].qty;
+  });
+  const catalog = catalogLines(nextMode);
+  const byKey = {};
+  catalog.forEach(line => { byKey[line.key] = line; });
+  const next = {};
+  Object.keys(picked).filter(id => picked[id]).forEach(id => {
+    const key = primaryKey(nextMode, id);
+    if (byKey[key]) next[key] = makeState(byKey[key], qtyByUnit[id] || 1, 0);
+  });
+  Object.keys(prev || {}).forEach(key => {
+    const line = byKey[key];
+    if (line && line.kind === "addon" && prev[key]) next[key] = makeState(line, prev[key].qty, prev[key].discount);
+  });
+  return next;
+}
+
+function discOptions(max) {
+  const opts = [0];
+  const cap = Math.floor((max || 0) / 5) * 5;
+  for (let v = 5; v <= cap; v += 5) opts.push(v);
+  return opts;
+}
+
+const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" };
+const labelStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#4a6b4a", marginBottom: 5, display: "block" };
+
+function SampleBanner({ mode }) {
+  if (!isSample(mode)) return null;
+  return (
+    <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 0 18px", padding: "12px 16px", borderRadius: 12, background: "#f59e0b", color: "#1a1203", fontWeight: 800, fontSize: 14, letterSpacing: 0.2, textAlign: "center", boxShadow: "0 8px 24px rgba(245,158,11,0.25)" }}>
+      SAMPLE PRICES - not final. Do not quote these numbers to a customer until the price list is confirmed.
+    </div>
+  );
+}
+
+function AppShell({ mode, email, children }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
+      <div style={{ position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" }} />
+      <div style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+            <img className="brand-lockup" src="img/tgd-asr-logo.webp" alt={COMPANY_NAME} />
+            <div style={{ marginTop: 10, fontSize: 16, fontWeight: 800, color: "#fff", lineHeight: 1.35 }}>{COMPANY_NAME}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#86a086", marginTop: 2 }}>Portable Restroom Quote</div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 14, fontWeight: 700 }}>
+              <a href={COMPANY_PHONE_TEL} style={{ color: "#86efac", textDecoration: "none" }}>{COMPANY_PHONE}</a>
+              <a href={"mailto:" + OFFICE_EMAIL} style={{ color: "#86efac", textDecoration: "none" }}>{OFFICE_EMAIL}</a>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+            {liveUrl(RESTROOM_ESTIMATES_URL) ? (
+              <a href={liveUrl(RESTROOM_ESTIMATES_URL)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12" }}>View past estimates</a>
+            ) : null}
+            <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>
+          </div>
+        </div>
+        <SampleBanner mode={mode} />
+        {children}
+        <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #1e2e1e", display: "flex", flexWrap: "wrap", gap: "6px 16px", alignItems: "center", fontSize: 13 }}>
+          <span style={{ color: "#6b8f6b", fontWeight: 700 }}>{COMPANY_NAME}</span>
+          <a href={COMPANY_PHONE_TEL} style={{ color: "#86efac", fontWeight: 700, textDecoration: "none" }}>{COMPANY_PHONE}</a>
+          <a href={"mailto:" + email} style={{ color: "#86efac", fontWeight: 700, textDecoration: "none" }}>{email}</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PoleIcon({ small }) {
+  return (
+    <svg width={small ? 28 : 88} height={small ? 38 : 120} viewBox="0 0 88 120" aria-hidden="true">
+      <rect x="40" y="16" width="8" height="98" rx="2" fill="#1a3a1a" />
+      <rect x="14" y="26" width="60" height="6" rx="2" fill="#1a3a1a" />
+      <circle cx="16" cy="29" r="5" fill="#f59e0b" />
+      <circle cx="72" cy="29" r="5" fill="#f59e0b" />
+      <path d="M50 44 L38 70 H48 L40 98 L64 62 H52 L60 44 Z" fill="#f59e0b" />
+    </svg>
+  );
+}
+
+function TypePicker({ mode, onChoose }) {
+  const choices = [
+    { id: "events", title: "EVENT" },
+    { id: "construction", title: "Long Term Construction Site" },
+  ];
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80", marginBottom: 8 }}>Step 1 of 3</div>
+      <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Is this for an Event or a Long-term Construction Site?</h1>
+      <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18 }}>Click one. The next card only shows products for that type.</p>
+      <div className="unit-grid" role="group" aria-label="Job type" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        {choices.map(choice => {
+          const on = mode === choice.id;
+          return (
+            <button key={choice.id} type="button" onClick={() => onChoose(choice.id)} aria-pressed={on} style={{ minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", cursor: "pointer", borderRadius: 8, background: on ? "#f0fdf4" : "#fff", border: on ? "2px solid #16a34a" : "2px solid #e6ecea", boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none", color: "#101d1f", padding: "28px 20px", position: "relative" }}>
+              <span style={{ fontSize: choice.id === "events" ? 64 : 40, fontWeight: 800, letterSpacing: -1, lineHeight: 1.05 }}>{choice.title}</span>
+              {on && <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
+  const items = mode === "construction" ? RESTROOM_PRICES.construction.concat(RESTROOM_PRICES.powerPoles) : RESTROOM_PRICES.units;
+  const selected = items.filter(unit => picked[unit.id]);
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#86efac", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Event or construction</button>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 2 of 3</div>
+      </div>
+      <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Which unit do you need?</h1>
+      <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18, maxWidth: 640 }}>
+        {mode === "construction" ? "Long-term construction products. Click every unit this job needs." : "Event products. Click every unit this job needs. These prices are still samples."}
+      </p>
+      <div className="unit-grid" role="group" aria-label="Units">
+        {items.map(unit => {
+          const on = !!picked[unit.id];
+          return (
+            <button
+              key={unit.id}
+              type="button"
+              onClick={() => onToggle(unit.id)}
+              aria-pressed={on}
+              style={{
+                textAlign: "left", cursor: "pointer", borderRadius: 8, overflow: "hidden",
+                background: on ? "#f0fdf4" : "#fff",
+                border: on ? "2px solid #16a34a" : "2px solid #e6ecea",
+                boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none",
+                color: "#101d1f", padding: 0, position: "relative",
+              }}
+            >
+              <div style={{ height: 168, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 10 }}>
+                {unit.kind === "pole" ? <PoleIcon /> : unit.image ? <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} /> : <div style={{ fontSize: 42 }}>{unit.emoji || "＋"}</div>}
+              </div>
+              <div style={{ padding: "12px 12px 14px" }}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{(unit.emoji ? unit.emoji + " " : "") + unit.name}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 3 }}>{unit.blurb}</div>
+                {unit.pricePending && <div style={{ display: "inline-block", marginTop: 8, padding: "3px 7px", borderRadius: 6, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "uppercase" }}>Price pending</div>}
+                {unit.kind === "pole" && RESTROOM_PRICES.poleNotes.map(note => (
+                  <div key={note} style={{ fontSize: 11, lineHeight: 1.35, color: "#7c5a12", marginTop: 4 }}>{note}</div>
+                ))}
+              </div>
+              {on && (
+                <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={onContinue}
+        disabled={selected.length === 0}
+        style={{
+          width: "100%", marginTop: 16, padding: "14px 0", borderRadius: 12, border: "none",
+          cursor: selected.length ? "pointer" : "not-allowed",
+          background: selected.length ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d",
+          color: selected.length ? "#1a1203" : "#666",
+          fontSize: 16, fontWeight: 800, letterSpacing: 0.2,
+          boxShadow: selected.length ? "0 4px 20px rgba(245,158,11,0.25)" : "none",
+        }}
+      >
+        {selected.length === 0 ? "Select a unit to continue" : "Continue to the quote · " + selected.length + (selected.length === 1 ? " unit" : " units")}
+      </button>
+      <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#4a6b4a" }}>
+        {mode === "construction" ? "Construction price book · 28-day periods" : items.length + " event units · sample prices"}
+      </div>
+    </div>
+  );
+}
+
+function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onServiceDays, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
+  const constructionMode = mode === "construction";
+  const sheet = constructionMode ? buildConstructionQuote(picked, opts, serviceDays) : null;
+  const quoteEmail = companyEmailFor(draft.csrName);
+  const polesOnly = !!(sheet && sheet.blocks.length > 0 && sheet.blocks.every(block => block.pole));
+  const scheduleLabel = constructionMode ? constructionDateLabel(sheet.blocks) : "";
+  const catalog = catalogLines(mode);
+  const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
+  const eventsDelivery = (!constructionMode && ordered.length) ? RESTROOM_PRICES.eventsDelivery : 0;
+  const total = constructionMode ? sheet.total : ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0) + eventsDelivery;
+  const totalQty = constructionMode ? sheet.blocks.reduce((sum, block) => sum + block.qty, 0) : ordered.reduce((sum, line) => sum + lines[line.key].qty, 0);
+  const hasQuote = constructionMode ? sheet.blocks.length > 0 : ordered.length > 0;
+  const anyDisc = catalog.some(line => line.disc > 0);
+  const estimateRef = useRef("");
+  const [estimateNum, setEstimateNum] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [posted, setPosted] = useState(false);
+  const [error, setError] = useState("");
+
+  const ghlUrl = liveUrl(RESTROOM_WEBHOOK_URL);
+  const sheetUrl = liveUrl(GOOGLE_SHEET_URL);
+  const missing = !draft.csrName ? "Select your name" : !draft.custName ? "Enter the customer name" : !draft.custPhone ? "Enter a phone number" : !draft.address.trim() ? "Enter the job address" : !hasQuote ? "Select at least one line" : "";
+  const canSend = !missing;
+
+  function ensureEstimate() {
+    if (!estimateRef.current) {
+      estimateRef.current = generateEstimateNumber();
+      setEstimateNum(estimateRef.current);
+    }
+    return estimateRef.current;
+  }
+
+  function useCase() { return mode === "events" ? "Event" : "Construction"; }
+
+  // Same shape as the dumpster quote text. 🚻 stands in for the dumpster's 🟢.
+  function constructionSummary() {
+    const linesOut = [];
+    linesOut.push(COMPANY_NAME);
+    linesOut.push(COMPANY_PHONE);
+    linesOut.push(quoteEmail);
+    linesOut.push("");
+    linesOut.push(scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : ""));
+    if (!polesOnly) {
+      linesOut.push("");
+      linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
+    }
+    linesOut.push("");
+    sheet.blocks.forEach((block, idx) => {
+      const p = block.product;
+      if (idx > 0) linesOut.push("");
+      if (block.pole) {
+        linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
+        linesOut.push("Install " + fmt(block.first.install));
+        linesOut.push("Hand Dig " + fmt(block.first.handDig));
+        linesOut.push("Setup/Delivery & Pickup " + fmt(block.first.delivery));
+        linesOut.push("First 28 days " + fmt(block.first.period));
+        linesOut.push("First period " + fmt(block.first.total));
+        linesOut.push("Each added 28 days: " + fmt(block.addedRate.total) + " per pole");
+        if (block.added) linesOut.push("Added 28 days (x" + block.extra + ") " + fmt(block.added.total));
+        linesOut.push("Service days do not change this price. Hand dig is always charged. Pickup is included.");
+        return;
+      }
+      linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
+      linesOut.push("Unit " + fmt(block.first.unit));
+      if (block.waive) linesOut.push("Delivery & Set-Up (one-time) $0.00 — waived, delivered with a unit");
+      else if (p.first.delivery) linesOut.push("Delivery & Set-Up (one-time) " + fmt(block.first.delivery));
+      if (p.first.service != null) linesOut.push("Service Fee (" + freqLabel(block.freq) + ") " + fmt(block.first.service));
+      linesOut.push("First 28 days " + fmt(block.first.total));
+      if (block.first.gap) linesOut.push("⚠️ Price book first-period total is " + fmt(p.first.listedTotal) + ". Unit + delivery + weekly service = " + fmt(money((p.first.unit || 0) + (p.first.delivery || 0) + (p.first.service || 0))) + ". Quote keeps that book total.");
+      let recur = "Each added 28 days: Unit " + fmt(block.addedRate.unitEach);
+      if (p.added.service != null) recur += " + Service Fee " + fmt(block.addedRate.serviceEach);
+      recur += " = " + fmt(block.addedRate.total);
+      linesOut.push(recur);
+      if (block.added) linesOut.push("Added 28 days (x" + block.extra + ") " + fmt(block.added.total));
+    });
+    linesOut.push("");
+    linesOut.push(RESTROOM_PRICES.rentalTerms);
+    linesOut.push("");
+    linesOut.push("💲 Total: " + fmt(sheet.total));
+    linesOut.push("Then " + fmt(sheet.recurring) + " every 28 days");
+    return linesOut;
+  }
+
+  function summaryParts() {
+    if (constructionMode) return constructionSummary();
+    const linesOut = [COMPANY_NAME, COMPANY_PHONE, quoteEmail, ""];
+    if (isSample(mode)) {
+      linesOut.push("⚠️ SAMPLE PRICES - not final");
+      linesOut.push("");
+    }
+    ordered.forEach((line, idx) => {
+      const info = lines[line.key];
+      const lineTotal = info.finalPrice * info.qty;
+      if (idx > 0) linesOut.push("");
+      linesOut.push("🚻 " + line.name + " (x" + info.qty + ")");
+      linesOut.push("💰 " + fmt(info.finalPrice) + "/ea" + (info.discount > 0 ? " (saved $" + info.discount + ")" : "") + " = " + fmt(lineTotal));
+      linesOut.push("📅 " + info.rentalPeriod);
+    });
+    if (eventsDelivery) {
+      linesOut.push("");
+      linesOut.push("Delivery & Set-Up (x1)");
+      linesOut.push("💰 " + fmt(eventsDelivery) + " = " + fmt(eventsDelivery));
+      linesOut.push("📅 per drop");
+    }
+    linesOut.push("");
+    linesOut.push("💲 Total: " + totalQty + " item" + (totalQty === 1 ? "" : "s") + " — " + fmt(total));
+    return linesOut;
+  }
+
+  function constructionHtml() {
+    const cell = "font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;";
+    const label = cell + "padding:8px 10px;border-bottom:1px solid #2a4a2a;";
+    const amount = label + "text-align:right;white-space:nowrap;";
+    const rows = [];
+    sheet.blocks.forEach(block => {
+      const p = block.product;
+      const title = (p.emoji ? p.emoji + " " : "") + p.name;
+      const row = (text, value, valueColor) => "<tr><td style='" + label + "'>" + text + "</td><td style='" + amount + "color:" + (valueColor || "#ffffff") + ";'>" + fmt(value) + "</td></tr>";
+      rows.push("<tr><td colspan='2' style='" + label + "font-size:15px;font-weight:800;'>" + title + " (x" + block.qty + ")</td></tr>");
+      if (block.pole) {
+        rows.push(row("Install", block.first.install));
+        rows.push(row("Hand Dig", block.first.handDig));
+        rows.push(row("Setup/Delivery &amp; Pickup", block.first.delivery));
+        rows.push(row("First 28 days", block.first.period, "#2ECC40"));
+        rows.push(row("First period", block.first.total, "#2ECC40"));
+        if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
+        rows.push("<tr><td colspan='2' style='" + label + "font-size:12px;line-height:16px;color:#8aaa8a;'>Service days do not change this price. Then " + fmt(block.addedRate.total) + " per pole every 28 days.</td></tr>");
+        return;
+      }
+      rows.push(row("Unit", block.first.unit));
+      rows.push(row(block.waive ? "Delivery &amp; Set-Up (waived)" : "Delivery &amp; Set-Up (one-time)", block.first.delivery));
+      if (p.first.service != null) rows.push(row("Service Fee (" + freqLabel(block.freq) + ")", block.first.service));
+      rows.push(row("First 28 days", block.first.total, "#2ECC40"));
+      if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
+    });
+    rows.push("<tr><td colspan='2' style='" + label + "font-size:14px;font-weight:700;color:#ffffff;'>Then " + fmt(sheet.recurring) + " every 28 days</td></tr>");
+    const dateLine = "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;'>" + scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : "") + "</p>";
+    return contactHtml(quoteEmail) + dateLine + "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+  }
+
+  function summaryHtml() {
+    if (constructionMode) return constructionHtml();
+    const rows = [];
+    ordered.forEach(line => {
+      const info = lines[line.key];
+      const lineTotal = info.finalPrice * info.qty;
+      let priceCell = "<span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.finalPrice) + "</span>";
+      if (info.discount > 0) {
+        priceCell = "<s style='color:#8aaa8a;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.basePrice) + "</s><br><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.finalPrice) + "</span> <span style='color:#2ECC40;font-size:11px;line-height:16px;white-space:nowrap;'>(saved $" + info.discount + ")</span>";
+      }
+      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;'>" + line.name + "</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;width:30px;'>" + info.qty + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;'>" + priceCell + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;white-space:nowrap;'>" + fmt(lineTotal) + "</td></tr>");
+      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
+    });
+    if (eventsDelivery) {
+      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;line-height:20px;'>Delivery &amp; Set-Up</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;line-height:20px;'>1</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;line-height:18px;'><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</span></td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;line-height:20px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</td></tr>");
+      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>per drop &bull; one charge for the quote, not per unit</td></tr>");
+    }
+    const brand = contactHtml(quoteEmail);
+    const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
+    return brand + banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
+  }
+
+  async function copyQuote() {
+    if (!hasQuote) return;
+    setCopyError("");
+    ensureEstimate();
+    const text = summaryParts().join("\n");
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
+      document.body.removeChild(ta);
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } else {
+      setCopyError("Clipboard blocked. Select the quote preview and copy it manually.");
+      setCopied(false);
+    }
+  }
+
+  function buildPayload(estNum) {
+    const flat = {};
+    const rows = constructionMode ? sheet.charges : ordered.map(line => {
+      const info = lines[line.key];
+      return {
+        name: line.name,
+        qty: info.qty,
+        finalPrice: info.finalPrice,
+        lineTotal: info.finalPrice * info.qty,
+        serviceFrequency: info.serviceFrequency,
+        rentalPeriod: info.rentalPeriod,
+      };
+    });
+    if (!constructionMode && eventsDelivery) {
+      rows.push({
+        name: "Delivery & Set-Up",
+        qty: 1,
+        finalPrice: eventsDelivery,
+        lineTotal: eventsDelivery,
+        serviceFrequency: "Per drop",
+        rentalPeriod: "per drop",
+      });
+    }
+    rows.forEach((info, i) => {
+      const n = i + 1;
+      const lineTotal = info.lineTotal != null ? info.lineTotal : info.finalPrice * info.qty;
+      flat["unit_" + n + "_name"] = info.name;
+      flat["unit_" + n + "_qty"] = info.qty;
+      flat["unit_" + n + "_price_each"] = Number(info.finalPrice).toFixed(2);
+      flat["unit_" + n + "_line_total"] = Number(lineTotal).toFixed(2);
+      flat["unit_" + n + "_service_frequency"] = info.serviceFrequency;
+      flat["unit_" + n + "_rental_period"] = info.rentalPeriod;
+    });
+    return {
+      estimate_number: estNum,
+      csr_name: draft.csrName,
+      csr_email: quoteEmail,
+      customer_name: draft.custName,
+      customer_phone: draft.custPhone,
+      customer_email: draft.custEmail,
+      job_address: draft.address.trim(),
+      service_type: "Portable Restroom",
+      use_case: useCase(),
+      ...(constructionMode
+        ? {
+            ...(polesOnly ? {} : { service_days_per_week: serviceDays }),
+            requested_delivery_date: draft.deliveryDate,
+            requested_installation_date: draft.deliveryDate,
+            recurring_28_day_total: sheet.recurring.toFixed(2),
+          }
+        : { event_date: draft.eventDate, delivery_date: draft.deliveryDate }),
+      unit_count: rows.length,
+      ...flat,
+      quote_summary: summaryParts().join("\n"),
+      quote_summary_html: summaryHtml(),
+      total_quote: total.toFixed(2),
+      company_name: COMPANY_NAME,
+      company_phone: COMPANY_PHONE,
+      company_email: quoteEmail,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  function sheetKind() {
+    const use = useCase();
+    if (!constructionMode) return "Portable Restroom — " + use;
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    const kind = hasPole && hasRestroom ? "Restroom + Power Pole" : hasPole ? "Temp Power Pole" : "Portable Restroom";
+    return kind + " — " + use;
+  }
+
+  function sheetBinDetails() {
+    const parts = [];
+    const address = draft.address.trim();
+    if (address) parts.push("Address: " + address);
+    if (constructionMode) {
+      if (!polesOnly) parts.push("Service days per week: " + serviceDays);
+      parts.push(scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : ""));
+      sheet.blocks.forEach(block => parts.push(block.product.name + " x" + block.qty));
+      parts.push("Recurring every 28 days: " + sheet.recurring.toFixed(2));
+    } else {
+      if (draft.eventDate) parts.push("Event date: " + draft.eventDate);
+      if (draft.deliveryDate) parts.push("Delivery date: " + draft.deliveryDate);
+      ordered.forEach(line => parts.push(line.name + " x" + lines[line.key].qty));
+      if (eventsDelivery) parts.push("Delivery & Set-Up x1");
+    }
+    return parts.join("; ");
+  }
+
+  function sheetLog(payload) {
+    const address = payload.job_address || "";
+    const zip = (address.match(/\b(\d{5})(?:-\d{4})?\b/) || [])[1] || "";
+    return {
+      estimate_number: payload.estimate_number,
+      timestamp: payload.timestamp,
+      csr_name: payload.csr_name,
+      customer_name: payload.customer_name,
+      customer_phone: payload.customer_phone,
+      customer_email: payload.customer_email,
+      zip_code: zip,
+      zone_name: sheetKind(),
+      customer_type: payload.use_case,
+      bin_details: sheetBinDetails(),
+      total_quote: payload.total_quote,
+      total_discounts: "0.00",
+    };
+  }
+
+  async function handleSend() {
+    if (!canSend || !ghlUrl) return;
+    setSending(true);
+    setError("");
+    const estNum = ensureEstimate();
+    const payload = buildPayload(estNum);
+    try {
+      await fetch(ghlUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (sheetUrl) {
+        fetch(sheetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          mode: "no-cors",
+          body: JSON.stringify(sheetLog(payload)),
+        }).catch(() => {});
+      }
+      setPosted(true);
+      setSent(true);
+    } catch (err) {
+      setError("Failed to send. Check webhook URL.");
+    }
+    setSending(false);
+  }
+
+  if (sent) {
+    return (
+      <div style={{ marginTop: 8, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" }}>
+        <div style={{ fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" }}>✅</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 }}>Quote Sent!</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{COMPANY_NAME}</div>
+        <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 8, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#6b8f6b" }}>Estimate # </span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#fff", fontFamily: "monospace", letterSpacing: 1 }}>{estimateNum}</span>
+        </div>
+        <div style={{ fontSize: 13, color: "#86a086", marginBottom: 4 }}>{posted ? "Sent to " + draft.custName + " via Email & SMS" : "Quote is ready for " + draft.custName + ". The restroom webhook is not connected, so no email or SMS went out."}</div>
+        <div style={{ fontSize: 12, color: "#4a6b4a", marginBottom: 20 }}>{totalQty} item(s) • {fmt(total)} total • {useCase()} • CSR: {draft.csrName}</div>
+        <button type="button" onClick={onStartOver} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>New Quote</button>
+      </div>
+    );
+  }
+
+  const modeBlurb = mode === "events"
+    ? "Events prices are still samples. A few days or a weekend can each be a line."
+    : RESTROOM_PRICES.rentalTerms;
+  const preview = hasQuote ? summaryParts().join("\n") : "";
+
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#86efac", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Units</button>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 3 of 3</div>
+      </div>
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 6 }}>Quote details</h1>
+      <p style={{ fontSize: 13, color: "#6b8f6b", marginBottom: 14 }}>Job address is free text. Nothing on this page looks up a zip code.</p>
+
+      <div style={{ fontSize: 13, color: "#86a086", marginBottom: 16, lineHeight: 1.45 }}>{modeBlurb}</div>
+
+      <div style={{ borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📝</div>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Build Quote</span>
+        </div>
+
+        <div className="q-3" style={{ marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>CSR Name</label>
+            <select value={draft.csrName} onChange={e => setDraft({ csrName: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }}>
+              <option value="">Select CSR...</option>
+              {CSR_NAMES.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Customer Name</label>
+            <input value={draft.custName} onChange={e => setDraft({ custName: e.target.value })} placeholder="Jane Roe" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Phone</label>
+            <input value={draft.custPhone} onChange={e => setDraft({ custPhone: e.target.value })} placeholder="(818) 555-1234" type="tel" style={inputStyle} />
+          </div>
+        </div>
+        {constructionMode ? (
+          <div className="q-2" style={{ marginBottom: 12 }}>
+            <div>
+              <label style={labelStyle}>Email</label>
+              <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{scheduleLabel}</label>
+              <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="q-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Event date</label>
+                <input value={draft.eventDate} onChange={e => setDraft({ eventDate: e.target.value })} type="date" style={inputStyle} />
+              </div>
+            </div>
+            <div className="q-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Delivery date</label>
+                <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
+              </div>
+              <div />
+            </div>
+          </div>
+        )}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Job address</label>
+          <input value={draft.address} onChange={e => setDraft({ address: e.target.value })} placeholder="100 Main St, Los Angeles" style={inputStyle} />
+          <div style={{ fontSize: 11, color: "#4a6b4a", marginTop: 5 }}>Street address for the order. Price does not change by city.</div>
+        </div>
+
+        {constructionMode && !polesOnly && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>How many days per week of service?</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {[1, 2, 3].map(days => (
+                <button key={days} type="button" onClick={() => onServiceDays(days)} aria-pressed={serviceDays === days} style={{ padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 800, background: serviceDays === days ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: serviceDays === days ? "2px solid #4ade80" : "1px solid #2d4a2d", color: serviceDays === days ? "#fff" : "#86a086" }}>
+                  {days + "x"}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same.</div>
+          </div>
+        )}
+        <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>
+        {constructionMode && sheet.blocks.map(block => {
+          const p = block.product;
+          const opt = opts[p.id] || { qty: block.qty, extra: block.extra };
+          if (block.pole) {
+            return (
+              <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 6, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center" }}><PoleIcon small /></div>
+                  <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{p.emoji + " " + p.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                    <button type="button" onClick={() => onOpt(p.id, { qty: Math.max(1, opt.qty - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                    <span style={{ minWidth: 18, textAlign: "center", fontWeight: 800 }}>{opt.qty}</span>
+                    <button type="button" onClick={() => onOpt(p.id, { qty: Math.min(10, opt.qty + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                  </div>
+                </div>
+                {[
+                  ["Install", block.first.install],
+                  ["Hand Dig", block.first.handDig],
+                  ["Setup/Delivery & Pickup", block.first.delivery],
+                  ["First 28 days", block.first.period],
+                ].map(([label, amount]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, color: "#d1e7d1", padding: "3px 0" }}>
+                    <span>{label}</span><span style={{ fontFamily: "monospace" }}>{fmt(amount)}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 800, color: "#4ade80", paddingTop: 6 }}>
+                  <span>First period</span><span style={{ fontFamily: "monospace" }}>{fmt(block.first.total)}</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: "#86a086" }}>Each added 28 days: {fmt(block.addedRate.total)} per pole. Service days do not change this price.</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote (Leave blank if not known)</span>
+                  <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, (opt.extra || 0) - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                  <input value={opt.extra ? String(opt.extra) : ""} onChange={e => { const raw = e.target.value.trim(); if (raw === "") { onOpt(p.id, { extra: 0 }); return; } if (!/^\d+$/.test(raw)) return; onOpt(p.id, { extra: Math.min(10, parseInt(raw, 10)) }); }} inputMode="numeric" aria-label={"Added 28-day periods for " + p.name} placeholder="" style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#fff", fontWeight: 800, textAlign: "center" }} />
+                  <button type="button" onClick={() => onOpt(p.id, { extra: Math.min(10, (opt.extra || 0) + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                  {block.added ? <span style={{ marginLeft: "auto", color: "#4ade80", fontWeight: 800 }}>{fmt(block.added.total)}</span> : null}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                {p.image ? <img src={p.image} alt="" style={{ width: 42, height: 42, objectFit: "contain", background: "#f4f8f7", borderRadius: 6 }} /> : <div style={{ width: 42, height: 42, borderRadius: 6, background: "#163016", display: "flex", alignItems: "center", justifyContent: "center" }}>{p.emoji || "+"}</div>}
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{(p.emoji ? p.emoji + " " : "") + p.name}{p.pricePending ? <span style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 6, background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 800, letterSpacing: 0.3, textTransform: "uppercase", verticalAlign: "middle" }}>Price pending</span> : null}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                  <button type="button" onClick={() => onOpt(p.id, { qty: Math.max(1, opt.qty - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                  <span style={{ minWidth: 18, textAlign: "center", fontWeight: 800 }}>{opt.qty}</span>
+                  <button type="button" onClick={() => onOpt(p.id, { qty: Math.min(10, opt.qty + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                </div>
+              </div>
+              {[
+                ["Unit", block.first.unit],
+                [block.waive ? "Delivery & Set-Up (one-time) — waived, delivered with a unit" : "Delivery & Set-Up (one-time)", block.first.delivery],
+                p.first.service != null ? ["Service Fee (" + freqLabel(block.freq) + ")", block.first.service] : null,
+              ].filter(Boolean).map(([label, amount]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, color: "#d1e7d1", padding: "3px 0" }}>
+                  <span>{label}</span><span style={{ fontFamily: "monospace" }}>{fmt(amount)}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 800, color: "#4ade80", paddingTop: 6 }}>
+                <span>First 28 days</span><span style={{ fontFamily: "monospace" }}>{fmt(block.first.total)}</span>
+              </div>
+              {block.first.gap ? (
+                <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", color: "#fde68a", fontSize: 12, lineHeight: 1.45 }}>
+                  TODO: price book first-period total is {fmt(p.first.listedTotal)}. Unit + delivery + weekly service = {fmt(money((p.first.unit || 0) + (p.first.delivery || 0) + (p.first.service || 0)))}. This quote uses the book total until you confirm.
+                </div>
+              ) : null}
+              <div style={{ marginTop: 8, fontSize: 12, color: "#86a086" }}>
+                Each added 28 days: Unit {fmt(block.addedRate.unitEach)}{p.added.service != null ? " + Service Fee " + fmt(block.addedRate.serviceEach) : ""} = {fmt(block.addedRate.total)}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote (Leave blank if not known)</span>
+                <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, (opt.extra || 0) - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                <input value={opt.extra ? String(opt.extra) : ""} onChange={e => { const raw = e.target.value.trim(); if (raw === "") { onOpt(p.id, { extra: 0 }); return; } if (!/^\d+$/.test(raw)) return; onOpt(p.id, { extra: Math.min(10, parseInt(raw, 10)) }); }} inputMode="numeric" aria-label="Added 28-day periods" placeholder="" style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#fff", fontWeight: 800, textAlign: "center" }} />
+                <button type="button" onClick={() => onOpt(p.id, { extra: Math.min(10, (opt.extra || 0) + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                {block.added ? <span style={{ marginLeft: "auto", color: "#4ade80", fontWeight: 800 }}>{fmt(block.added.total)}</span> : null}
+              </div>
+            </div>
+          );
+        })}
+        {!constructionMode && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Units</div>}
+        {!constructionMode && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {catalog.filter(line => line.kind === "unit").map(line => {
+            const on = !!lines[line.key];
+            return (
+              <button key={line.key} type="button" onClick={() => onToggleLine(line.key)} style={{ padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: on ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: on ? "2px solid #4ade80" : "1px solid #2d4a2d", color: on ? "#fff" : "#86a086" }}>
+                {line.name} · {line.bill} · {fmt(line.price)}
+              </button>
+            );
+          })}
+        </div>}
+        {!constructionMode && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Add-ons</div>}
+        {!constructionMode && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+          {catalog.filter(line => line.kind === "addon").map(line => {
+            const on = !!lines[line.key];
+            return (
+              <button key={line.key} type="button" onClick={() => onToggleLine(line.key)} style={{ padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: on ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: on ? "2px solid #4ade80" : "1px solid #2d4a2d", color: on ? "#fff" : "#86a086" }}>
+                {line.name} · {fmt(line.price)}
+              </button>
+            );
+          })}
+        </div>}
+
+        {!constructionMode && ordered.map(line => {
+          const info = lines[line.key];
+          return (
+            <div key={line.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+              {info.image ? <img src={info.image} alt="" style={{ width: 42, height: 42, objectFit: "contain", background: "#f4f8f7", borderRadius: 6 }} /> : <div style={{ width: 42, height: 42, borderRadius: 6, background: "#163016" }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#d1e7d1" }}>{line.name}</div>
+                <div style={{ fontSize: 11, color: "#4a6b4a" }}>{line.bill} · {line.includes}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                <button type="button" onClick={() => onQty(line.key, info.qty - 1)} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                <span style={{ minWidth: 20, textAlign: "center", fontSize: 14, fontWeight: 800, color: info.qty > 1 ? "#f59e0b" : "#d1e7d1" }}>{info.qty}</span>
+                <button type="button" onClick={() => onQty(line.key, info.qty + 1)} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+              </div>
+              {info.maxDisc > 0 && (
+                <select value={info.discount} onChange={e => onDiscount(line.key, e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: info.discount > 0 ? "#f59e0b" : "#6b8f6b", fontSize: 12, fontWeight: 700 }}>
+                  {discOptions(info.maxDisc).map(v => <option key={v} value={v}>{v === 0 ? "$0" : "−$" + v}</option>)}
+                </select>
+              )}
+              <div style={{ textAlign: "right", minWidth: 88 }}>
+                <div style={{ fontSize: 13, color: "#86a086" }}>{fmt(info.finalPrice)} ea</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80" }}>{fmt(info.finalPrice * info.qty)}</div>
+              </div>
+            </div>
+          );
+        })}
+
+        {!constructionMode && eventsDelivery > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#d1e7d1" }}>Delivery & Set-Up</div>
+              <div style={{ fontSize: 11, color: "#4a6b4a" }}>per drop · one charge for the quote, not per unit · sample price</div>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80" }}>{fmt(eventsDelivery)}</div>
+          </div>
+        )}
+
+        {constructionMode && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: "#fde68a", lineHeight: 1.45 }}>{RESTROOM_PRICES.rentalTerms}</div>}
+        {constructionMode && <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#fde68a" }}>Then {fmt(sheet.recurring)} every 28 days</div>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#86a086" }}>Quote total ({totalQty} {totalQty === 1 ? "item" : "items"})</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" }}>{fmt(total)}</span>
+        </div>
+
+        {constructionMode && sheet.blocks.some(block => block.pole) && (
+          <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(26,46,26,0.45)", border: "1px solid #1e2e1e", fontSize: 12, color: "#86a086", lineHeight: 1.5 }}>
+            <strong style={{ color: "#d1e7d1" }}>CSR note — leave this off the customer quote. Temp power poles: </strong>
+            {RESTROOM_PRICES.poleNotes.join(" ")}
+          </div>
+        )}
+        <div style={{ marginTop: 12 }}>
+          <label style={labelStyle}>Notes for the quote</label>
+          <textarea value={draft.notes} onChange={e => setDraft({ notes: e.target.value })} rows={2} placeholder="Gate code, placement, guest count" style={{ ...inputStyle, resize: "vertical" }} />
+        </div>
+
+        {estimateNum && (
+          <div style={{ marginTop: 12, fontSize: 12, color: "#86efac" }}>Estimate # <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#fff" }}>{estimateNum}</span></div>
+        )}
+        {(error || copyError) && (
+          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600 }}>{error || copyError}</div>
+        )}
+
+        <button type="button" onClick={handleSend} disabled={!canSend || !ghlUrl || sending} style={{ width: "100%", marginTop: 14, padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && ghlUrl && !sending ? "pointer" : "not-allowed", background: canSend && ghlUrl && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend && ghlUrl ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: canSend && ghlUrl ? "0 4px 20px rgba(245,158,11,0.2)" : "none" }}>
+          {sending ? "Sending..." : (draft.custEmail ? "📧 Send Quote via Email & SMS" : "📧 Send Quote via SMS")}
+        </button>
+        <button type="button" onClick={copyQuote} disabled={!hasQuote} style={{ width: "100%", marginTop: 8, padding: "10px 0", borderRadius: 12, cursor: hasQuote ? "pointer" : "not-allowed", background: "#121e12", border: "1px solid #2d4a2d", color: hasQuote ? "#4ade80" : "#666", fontSize: 13, fontWeight: 700 }}>
+          {copied ? "Copied" : "Copy quote"}
+        </button>
+        {!ghlUrl && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#fde68a" }}>GHL not connected yet</div>}
+        {!canSend && !sending && <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" }}>{missing}</div>}
+
+        {preview && (
+          <details style={{ marginTop: 14 }}>
+            <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#86a086" }}>Quote text</summary>
+            <pre style={{ marginTop: 8, whiteSpace: "pre-wrap", fontSize: 12, lineHeight: 1.45, color: "#d1e7d1", background: "#0d180d", border: "1px solid #1e2e1e", borderRadius: 10, padding: 12 }}>{preview}</pre>
+          </details>
+        )}
+      </div>
+
+      <div style={{ marginTop: 18, borderRadius: 16, overflow: "hidden", border: "1px solid #2d4a2d" }}>
+        <div style={{ padding: "12px 16px", background: "linear-gradient(135deg,#1a2e1a,#162016)", fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#6b8f6b" }}>
+          {mode === "events" ? "Events" : "Construction"} price list
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table className="price-table">
+            <thead>
+              <tr style={{ background: "#121e12" }}>
+                {["Item", "Price", "Billed as", "Included"].map(h => (
+                  <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b8f6b", borderBottom: "2px solid #2d4a2d" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {constructionMode ? RESTROOM_PRICES.construction.map((p, i) => {
+                const first = periodMath(p.first, 1, 1, false);
+                const added = periodMath(p.added, 1, 1, true);
+                return (
+                  <tr key={p.id} style={{ background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)" }}>
+                    <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{(p.emoji ? p.emoji + " " : "") + p.name}</td>
+                    <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>Unit {fmt(p.first.unit)}{p.first.delivery ? " + delivery " + fmt(p.first.delivery) : ""}{p.first.service != null ? " + service " + fmt(p.first.service) : ""}</td>
+                    <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(first.total)}{p.first.listedTotal != null ? " book" : ""}</td>
+                    <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Added 28 days {fmt(added.total)}{p.waiveDeliveryWithUnit ? ". Delivery waived with a unit." : ""}{p.pricePending ? " Price pending." : ""}</td>
+                  </tr>
+                );
+              }) : catalog.map((line, i) => (
+                <tr key={line.key} style={{ background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{line.name}{line.kind === "addon" ? " · add-on" : ""}</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(line.price)}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>{line.bill}</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>{line.includes}</td>
+                </tr>
+              ))}
+              {constructionMode && RESTROOM_PRICES.powerPoles.map(p => (
+                <tr key={p.id} style={{ background: "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{p.emoji + " " + p.name}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>Install {fmt(p.install)} + Hand Dig {fmt(p.handDig)} + Delivery & Pickup {fmt(p.delivery)} + First 28 days {fmt(p.period)}</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(p.install + p.handDig + p.delivery + p.period)}</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Then {fmt(p.period)} every 28 days. Hand dig always charged. Pickup included. Service days do not apply.</td>
+                </tr>
+              ))}
+              {!constructionMode && (
+                <tr style={{ background: "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>Delivery & Set-Up</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(RESTROOM_PRICES.eventsDelivery)}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>per drop</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>PLACEHOLDER. One charge for the quote, not per unit.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: anyDisc ? "rgba(34,197,94,0.06)" : "rgba(250,204,21,0.06)", border: anyDisc ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(250,204,21,0.18)" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: anyDisc ? "#4ade80" : "#fde68a", marginBottom: 4 }}>{anyDisc ? "Discounts available" : "No discounts on this price list"}</div>
+        <div style={{ fontSize: 12, color: "#b0a060", lineHeight: 1.45 }}>
+          {anyDisc
+            ? "Discounts step by $5, up to the disc on each item. Offer one only if the customer is hesitant. Do not lead with it."
+            : "Every disc is 0. Anything off the listed price → check with the manager. Set disc to a multiple of 5 in RESTROOM_PRICES when a discount is allowed."}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "rgba(26,46,26,0.45)", border: "1px solid #1e2e1e", fontSize: 12, color: "#86a086", lineHeight: 1.5 }}>
+        <strong style={{ color: "#d1e7d1" }}>CSR note — leave this off the customer quote. </strong>
+        {RESTROOM_PRICES.brokerNote}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 18, fontSize: 12, color: "#4a6b4a" }}>
+        <span>Picked on step 1: {Object.keys(picked).filter(id => picked[id]).length}</span>
+        <button type="button" onClick={onStartOver} style={{ background: "none", border: "none", color: "#6b8f6b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Start over</button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState("type");
+  const [mode, setMode] = useState("");
+  const [picked, setPicked] = useState({});
+  const [lines, setLines] = useState({});
+  const [opts, setOpts] = useState({});
+  const [serviceDays, setServiceDays] = useState(1);
+  const [draft, setDraftState] = useState({
+    csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "",
+  });
+
+  function setDraft(patch) { setDraftState(prev => ({ ...prev, ...patch })); }
+
+  function togglePick(id) {
+    setPicked(prev => ({ ...prev, [id]: !prev[id] }));
+    setOpts(prev => prev[id] ? prev : { ...prev, [id]: { qty: 1, extra: 0 } });
+  }
+
+  function onOpt(id, patch) {
+    setOpts(prev => ({ ...prev, [id]: { qty: 1, extra: 0, ...(prev[id] || {}), ...patch } }));
+  }
+
+  function chooseType(nextMode) {
+    if (nextMode !== mode) {
+      setPicked({});
+      setLines({});
+      setOpts({});
+      setServiceDays(1);
+    }
+    setMode(nextMode);
+    setScreen("products");
+    window.scrollTo(0, 0);
+  }
+
+  function continueToQuote() {
+    const ids = Object.keys(picked).filter(id => picked[id]);
+    if (!ids.length) return;
+    setLines(prev => mergeLines(mode, ids, prev));
+    setScreen("quote");
+    window.scrollTo(0, 0);
+  }
+
+  function toggleLine(key) {
+    const catalog = catalogLines(mode);
+    const line = catalog.find(item => item.key === key);
+    if (!line) return;
+    const next = { ...lines };
+    if (next[key]) delete next[key];
+    else next[key] = makeState(line, 1, 0);
+    setLines(next);
+    if (line.kind === "unit") {
+      const still = {};
+      catalog.forEach(item => {
+        if (item.kind === "unit" && next[item.key]) still[item.unitId] = true;
+      });
+      setPicked(still);
+    }
+  }
+
+  function setQty(key, qty) {
+    const num = Math.min(10, Math.max(1, parseInt(qty, 10) || 1));
+    setLines(prev => prev[key] ? { ...prev, [key]: { ...prev[key], qty: num } } : prev);
+  }
+
+  function setDiscount(key, val) {
+    setLines(prev => {
+      const row = prev[key];
+      if (!row) return prev;
+      const num = Math.min(row.maxDisc, Math.max(0, parseInt(val, 10) || 0));
+      return { ...prev, [key]: { ...row, discount: num, finalPrice: row.basePrice - num } };
+    });
+  }
+
+  function startOver() {
+    setScreen("type");
+    setMode("");
+    setPicked({});
+    setLines({});
+    setOpts({});
+    setServiceDays(1);
+    setDraftState({ csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "" });
+    window.scrollTo(0, 0);
+  }
+
+  return (
+    <AppShell mode={mode} email={companyEmailFor(draft.csrName)}>
+      {screen === "type" ? (
+        <TypePicker mode={mode} onChoose={chooseType} />
+      ) : screen === "products" ? (
+        <UnitPicker mode={mode} picked={picked} onToggle={togglePick} onContinue={continueToQuote} onBack={() => { setScreen("type"); window.scrollTo(0, 0); }} />
+      ) : (
+        <QuoteDetails
+          mode={mode}
+          picked={picked}
+          lines={lines}
+          opts={opts}
+          onOpt={onOpt}
+          serviceDays={serviceDays}
+          onServiceDays={setServiceDays}
+          onBack={() => { setScreen("products"); window.scrollTo(0, 0); }}
+          onToggleLine={toggleLine}
+          onQty={setQty}
+          onDiscount={setDiscount}
+          draft={draft}
+          setDraft={setDraft}
+          onStartOver={startOver}
+        />
+      )}
+    </AppShell>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

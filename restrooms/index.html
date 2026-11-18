@@ -235,6 +235,39 @@ const RESTROOM_PRICES = {
       added: { unit: 15.00 },
     },
   ],
+  // Dustin 11/16/2026 pricing
+  // Construction only. Not an event product. Service days do not multiply these lines.
+  // Hand dig is always charged. The $225 includes delivery and pickup. No removal fee.
+  poleNotes: [
+    "Permits not included, customer pulls the permit.",
+    "DigAlert 811 and SCE/LADWP approval required.",
+    "Pickup is automatic on the due date with 7-day notice.",
+    "Cancellation fee $235.",
+  ],
+  powerPoles: [
+    {
+      id: "pole-100",
+      kind: "pole",
+      name: "100A Temp Power Pole",
+      emoji: "⚡",
+      blurb: "Temporary 100 amp power. Service days do not change this price.",
+      install: 1180,
+      handDig: 75,
+      delivery: 225,
+      period: 110,
+    },
+    {
+      id: "pole-200",
+      kind: "pole",
+      name: "200A Temp Power Pole",
+      emoji: "⚡",
+      blurb: "Temporary 200 amp power. Service days do not change this price.",
+      install: 1330,
+      handDig: 75,
+      delivery: 225,
+      period: 110,
+    },
+  ],
   addons: [
     {
       id: "service",
@@ -325,6 +358,15 @@ function periodMath(spec, qty, freqMult, waiveDelivery) {
   };
 }
 
+function poleAmounts(pole, qty) {
+  const count = qty || 1;
+  const install = money(pole.install * count);
+  const handDig = money(pole.handDig * count);
+  const delivery = money(pole.delivery * count);
+  const period = money(pole.period * count);
+  return { install, handDig, delivery, period, total: money(install + handDig + delivery + period) };
+}
+
 function buildConstructionQuote(picked, opts, serviceDays) {
   const selected = RESTROOM_PRICES.construction.filter(p => picked[p.id]);
   const withUnit = selected.some(p => !p.addon);
@@ -357,6 +399,40 @@ function buildConstructionQuote(picked, opts, serviceDays) {
     if (added) {
       push("Unit", added.unit, "each added 28 days");
       if (product.added.service != null) push("Service Fee", added.service, "each added 28 days");
+    }
+  });
+  RESTROOM_PRICES.powerPoles.filter(p => picked[p.id]).forEach(pole => {
+    const opt = opts[pole.id] || { qty: 1, extra: 0 };
+    const qty = Math.min(10, Math.max(1, opt.qty || 1));
+    const extra = Math.min(10, Math.max(0, opt.extra || 0));
+    const first = poleAmounts(pole, qty);
+    const addedTotal = extra > 0 ? money(pole.period * qty * extra) : 0;
+    const added = extra > 0 ? { total: addedTotal, period: addedTotal } : null;
+    const addedRate = { total: pole.period };
+    blocks.push({ product: pole, pole: true, qty, extra, first, added, addedRate });
+    const pushPole = (label, each, period) => {
+      charges.push({
+        name: pole.name + " — " + label,
+        qty: qty,
+        finalPrice: each,
+        lineTotal: money(each * qty),
+        serviceFrequency: "n/a",
+        rentalPeriod: period,
+      });
+    };
+    pushPole("Install", pole.install, "first 28 days");
+    pushPole("Hand Dig", pole.handDig, "first 28 days");
+    pushPole("Setup/Delivery & Pickup", pole.delivery, "first 28 days");
+    pushPole("First 28 days", pole.period, "first 28 days");
+    if (extra > 0) {
+      charges.push({
+        name: pole.name + " — Added 28 days",
+        qty: qty * extra,
+        finalPrice: pole.period,
+        lineTotal: addedTotal,
+        serviceFrequency: "n/a",
+        rentalPeriod: "each added 28 days",
+      });
     }
   });
   const total = money(blocks.reduce((sum, block) => sum + block.first.total + (block.added ? block.added.total : 0), 0));
@@ -529,6 +605,18 @@ function AppShell({ mode, email, children }) {
   );
 }
 
+function PoleIcon({ small }) {
+  return (
+    <svg width={small ? 28 : 88} height={small ? 38 : 120} viewBox="0 0 88 120" aria-hidden="true">
+      <rect x="40" y="16" width="8" height="98" rx="2" fill="#1a3a1a" />
+      <rect x="14" y="26" width="60" height="6" rx="2" fill="#1a3a1a" />
+      <circle cx="16" cy="29" r="5" fill="#f59e0b" />
+      <circle cx="72" cy="29" r="5" fill="#f59e0b" />
+      <path d="M50 44 L38 70 H48 L40 98 L64 62 H52 L60 44 Z" fill="#f59e0b" />
+    </svg>
+  );
+}
+
 function TypePicker({ mode, onChoose }) {
   const choices = [
     { id: "events", title: "EVENT" },
@@ -555,7 +643,7 @@ function TypePicker({ mode, onChoose }) {
 }
 
 function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
-  const items = mode === "construction" ? RESTROOM_PRICES.construction : RESTROOM_PRICES.units;
+  const items = mode === "construction" ? RESTROOM_PRICES.construction.concat(RESTROOM_PRICES.powerPoles) : RESTROOM_PRICES.units;
   const selected = items.filter(unit => picked[unit.id]);
   return (
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
@@ -585,12 +673,15 @@ function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
               }}
             >
               <div style={{ height: 168, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 10 }}>
-                {unit.image ? <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} /> : <div style={{ fontSize: 42 }}>{unit.emoji || "＋"}</div>}
+                {unit.kind === "pole" ? <PoleIcon /> : unit.image ? <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} /> : <div style={{ fontSize: 42 }}>{unit.emoji || "＋"}</div>}
               </div>
               <div style={{ padding: "12px 12px 14px" }}>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>{(unit.emoji ? unit.emoji + " " : "") + unit.name}</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 3 }}>{unit.blurb}</div>
                 {unit.pricePending && <div style={{ display: "inline-block", marginTop: 8, padding: "3px 7px", borderRadius: 6, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "uppercase" }}>Price pending</div>}
+                {unit.kind === "pole" && RESTROOM_PRICES.poleNotes.map(note => (
+                  <div key={note} style={{ fontSize: 11, lineHeight: 1.35, color: "#7c5a12", marginTop: 4 }}>{note}</div>
+                ))}
               </div>
               {on && (
                 <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>
@@ -668,6 +759,18 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     sheet.blocks.forEach((block, idx) => {
       const p = block.product;
       if (idx > 0) linesOut.push("");
+      if (block.pole) {
+        linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
+        linesOut.push("Install " + fmt(block.first.install));
+        linesOut.push("Hand Dig " + fmt(block.first.handDig));
+        linesOut.push("Setup/Delivery & Pickup " + fmt(block.first.delivery));
+        linesOut.push("First 28 days " + fmt(block.first.period));
+        linesOut.push("First period " + fmt(block.first.total));
+        linesOut.push("Each added 28 days: " + fmt(block.addedRate.total) + " per pole");
+        if (block.added) linesOut.push("Added 28 days (x" + block.extra + ") " + fmt(block.added.total));
+        linesOut.push("Service days do not change this price. Hand dig is always charged. Pickup is included.");
+        return;
+      }
       linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
       linesOut.push("Unit " + fmt(block.first.unit));
       if (block.waive) linesOut.push("Delivery & Set-Up (one-time) $0.00 — waived, delivered with a unit");
@@ -725,6 +828,16 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       const title = (p.emoji ? p.emoji + " " : "") + p.name;
       const row = (text, value, valueColor) => "<tr><td style='" + label + "'>" + text + "</td><td style='" + amount + "color:" + (valueColor || "#ffffff") + ";'>" + fmt(value) + "</td></tr>";
       rows.push("<tr><td colspan='2' style='" + label + "font-size:15px;font-weight:800;'>" + title + " (x" + block.qty + ")</td></tr>");
+      if (block.pole) {
+        rows.push(row("Install", block.first.install));
+        rows.push(row("Hand Dig", block.first.handDig));
+        rows.push(row("Setup/Delivery &amp; Pickup", block.first.delivery));
+        rows.push(row("First 28 days", block.first.period, "#2ECC40"));
+        rows.push(row("First period", block.first.total, "#2ECC40"));
+        if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
+        rows.push("<tr><td colspan='2' style='" + label + "font-size:12px;line-height:16px;color:#8aaa8a;'>Service days do not change this price. Then " + fmt(block.addedRate.total) + " per pole every 28 days.</td></tr>");
+        return;
+      }
       rows.push(row("Unit", block.first.unit));
       rows.push(row(block.waive ? "Delivery &amp; Set-Up (waived)" : "Delivery &amp; Set-Up (one-time)", block.first.delivery));
       if (p.first.service != null) rows.push(row("Service Fee (" + freqLabel(block.freq) + ")", block.first.service));
@@ -972,13 +1085,50 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same.</div>
+            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same. Temp power poles are not multiplied.</div>
           </div>
         )}
         <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>
         {constructionMode && sheet.blocks.map(block => {
           const p = block.product;
-          const opt = opts[p.id] || { qty: block.qty, freq: block.freq, extra: block.extra };
+          const opt = opts[p.id] || { qty: block.qty, extra: block.extra };
+          if (block.pole) {
+            return (
+              <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 6, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center" }}><PoleIcon small /></div>
+                  <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{p.emoji + " " + p.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                    <button type="button" onClick={() => onOpt(p.id, { qty: Math.max(1, opt.qty - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                    <span style={{ minWidth: 18, textAlign: "center", fontWeight: 800 }}>{opt.qty}</span>
+                    <button type="button" onClick={() => onOpt(p.id, { qty: Math.min(10, opt.qty + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                  </div>
+                </div>
+                {[
+                  ["Install", block.first.install],
+                  ["Hand Dig", block.first.handDig],
+                  ["Setup/Delivery & Pickup", block.first.delivery],
+                  ["First 28 days", block.first.period],
+                ].map(([label, amount]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, color: "#d1e7d1", padding: "3px 0" }}>
+                    <span>{label}</span><span style={{ fontFamily: "monospace" }}>{fmt(amount)}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 800, color: "#4ade80", paddingTop: 6 }}>
+                  <span>First period</span><span style={{ fontFamily: "monospace" }}>{fmt(block.first.total)}</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: "#86a086" }}>Each added 28 days: {fmt(block.addedRate.total)} per pole. Service days do not change this price.</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: "#6b8f6b" }}>Added 28-day periods on this quote (Leave blank if not known)</span>
+                  <button type="button" onClick={() => onOpt(p.id, { extra: Math.max(0, (opt.extra || 0) - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                  <input value={opt.extra ? String(opt.extra) : ""} onChange={e => { const raw = e.target.value.trim(); if (raw === "") { onOpt(p.id, { extra: 0 }); return; } if (!/^\d+$/.test(raw)) return; onOpt(p.id, { extra: Math.min(10, parseInt(raw, 10)) }); }} inputMode="numeric" aria-label={"Added 28-day periods for " + p.name} placeholder="" style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#fff", fontWeight: 800, textAlign: "center" }} />
+                  <button type="button" onClick={() => onOpt(p.id, { extra: Math.min(10, (opt.extra || 0) + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+                  {block.added ? <span style={{ marginLeft: "auto", color: "#4ade80", fontWeight: 800 }}>{fmt(block.added.total)}</span> : null}
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
@@ -1089,6 +1239,12 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
           <span style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" }}>{fmt(total)}</span>
         </div>
 
+        {constructionMode && sheet.blocks.some(block => block.pole) && (
+          <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(26,46,26,0.45)", border: "1px solid #1e2e1e", fontSize: 12, color: "#86a086", lineHeight: 1.5 }}>
+            <strong style={{ color: "#d1e7d1" }}>CSR note — leave this off the customer quote. Temp power poles: </strong>
+            {RESTROOM_PRICES.poleNotes.join(" ")}
+          </div>
+        )}
         <div style={{ marginTop: 12 }}>
           <label style={labelStyle}>Notes for the quote</label>
           <textarea value={draft.notes} onChange={e => setDraft({ notes: e.target.value })} rows={2} placeholder="Gate code, placement, guest count" style={{ ...inputStyle, resize: "vertical" }} />
@@ -1149,6 +1305,14 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
                   <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(line.price)}</td>
                   <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>{line.bill}</td>
                   <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>{line.includes}</td>
+                </tr>
+              ))}
+              {constructionMode && RESTROOM_PRICES.powerPoles.map(p => (
+                <tr key={p.id} style={{ background: "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{p.emoji + " " + p.name}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>Install {fmt(p.install)} + Hand Dig {fmt(p.handDig)} + Delivery & Pickup {fmt(p.delivery)} + First 28 days {fmt(p.period)}</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(p.install + p.handDig + p.delivery + p.period)}</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Then {fmt(p.period)} every 28 days. Hand dig always charged. Pickup included. Service days do not apply.</td>
                 </tr>
               ))}
               {!constructionMode && (

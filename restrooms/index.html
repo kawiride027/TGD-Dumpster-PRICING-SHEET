@@ -68,14 +68,11 @@ function contactHtml(email) {
 // Do not paste the dumpster webhook. That workflow is "CSR Dumpster Quote"
 // and it sends the dumpster email and SMS.
 const RESTROOM_WEBHOOK_URL = "";
-// Restroom quote log. Leave empty until a separate Apps Script web app is deployed
-// from restrooms/google-sheet-script.js onto its own spreadsheet, tab "Restroom Estimates".
-// Do not paste the dumpster GOOGLE_SHEET_URL. That script writes to the dumpster
-// spreadsheet's active tab and has no sheet or tab parameter.
-const GOOGLE_SHEET_URL = "";
-// TODO: paste the Google Sheet URL CSRs open to look up a past restroom estimate.
-// That is the spreadsheet link, not the Apps Script /exec URL. Leave empty to hide the link.
-const RESTROOM_ESTIMATES_URL = "";
+// Same Apps Script as the dumpster quote log. It writes the active tab of the
+// dumpster spreadsheet and only reads the 12 dumpster field names below.
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxVXMApmhBAOZ_T-jrttCsytZ6d7cNMVq4pKghpOj1_SHw_kzMhXk8xlnF6o4mQY0x4/exec";
+// Spreadsheet CSRs open to look up a past estimate. Same workbook as dumpster quotes.
+const RESTROOM_ESTIMATES_URL = "https://docs.google.com/spreadsheets/d/1oAwH55Eu-bUkbEzIxqH_U7dSwjw3z1iQEWVcArFtJ0I/edit";
 
 // =====================================================
 // RESTROOM_PRICES — edit this object in the GitHub web editor.
@@ -989,6 +986,52 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     };
   }
 
+  function sheetKind() {
+    const use = useCase();
+    if (!constructionMode) return "Portable Restroom — " + use;
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    const kind = hasPole && hasRestroom ? "Restroom + Power Pole" : hasPole ? "Temp Power Pole" : "Portable Restroom";
+    return kind + " — " + use;
+  }
+
+  function sheetBinDetails() {
+    const parts = [];
+    const address = draft.address.trim();
+    if (address) parts.push("Address: " + address);
+    if (constructionMode) {
+      if (!polesOnly) parts.push("Service days per week: " + serviceDays);
+      parts.push(scheduleLabel + (draft.deliveryDate ? ": " + draft.deliveryDate : ""));
+      sheet.blocks.forEach(block => parts.push(block.product.name + " x" + block.qty));
+      parts.push("Recurring every 28 days: " + sheet.recurring.toFixed(2));
+    } else {
+      if (draft.eventDate) parts.push("Event date: " + draft.eventDate);
+      if (draft.deliveryDate) parts.push("Delivery date: " + draft.deliveryDate);
+      ordered.forEach(line => parts.push(line.name + " x" + lines[line.key].qty));
+      if (eventsDelivery) parts.push("Delivery & Set-Up x1");
+    }
+    return parts.join("; ");
+  }
+
+  function sheetLog(payload) {
+    const address = payload.job_address || "";
+    const zip = (address.match(/\b(\d{5})(?:-\d{4})?\b/) || [])[1] || "";
+    return {
+      estimate_number: payload.estimate_number,
+      timestamp: payload.timestamp,
+      csr_name: payload.csr_name,
+      customer_name: payload.customer_name,
+      customer_phone: payload.customer_phone,
+      customer_email: payload.customer_email,
+      zip_code: zip,
+      zone_name: sheetKind(),
+      customer_type: payload.use_case,
+      bin_details: sheetBinDetails(),
+      total_quote: payload.total_quote,
+      total_discounts: "0.00",
+    };
+  }
+
   async function handleSend() {
     if (!canSend || !ghlUrl) return;
     setSending(true);
@@ -1002,20 +1045,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
           method: "POST",
           headers: { "Content-Type": "application/json" },
           mode: "no-cors",
-          body: JSON.stringify({
-            estimate_number: payload.estimate_number,
-            timestamp: payload.timestamp,
-            csr_name: payload.csr_name,
-            csr_email: payload.csr_email,
-            customer_name: payload.customer_name,
-            customer_phone: payload.customer_phone,
-            customer_email: payload.customer_email,
-            job_address: payload.job_address,
-            use_case: payload.use_case,
-            details: payload.quote_summary,
-            total_quote: payload.total_quote,
-            recurring_28_day_total: payload.recurring_28_day_total || "",
-          }),
+          body: JSON.stringify(sheetLog(payload)),
         }).catch(() => {});
       }
       setPosted(true);

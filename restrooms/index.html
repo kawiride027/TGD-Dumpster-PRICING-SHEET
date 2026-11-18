@@ -809,7 +809,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
         linesOut.push("First period " + fmt(block.first.total));
         linesOut.push("Each added 28 days: " + fmt(block.addedRate.total) + " per pole");
         if (block.added) linesOut.push("Added 28 days (x" + block.extra + ") " + fmt(block.added.total));
-        linesOut.push("Service days do not change this price. Hand dig is always charged. Pickup is included.");
+        linesOut.push((polesOnly ? "" : "Service days do not change this price. ") + "Hand dig is always charged. Pickup is included.");
         return;
       }
       linesOut.push((p.emoji ? p.emoji + " " : "") + p.name + " (x" + block.qty + ")");
@@ -876,7 +876,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
         rows.push(row("First 28 days", block.first.period, "#2ECC40"));
         rows.push(row("First period", block.first.total, "#2ECC40"));
         if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
-        rows.push("<tr><td colspan='2' style='" + label + "font-size:12px;line-height:16px;color:#8aaa8a;'>Service days do not change this price. Then " + fmt(block.addedRate.total) + " per pole every 28 days.</td></tr>");
+        rows.push("<tr><td colspan='2' style='" + label + "font-size:12px;line-height:16px;color:#8aaa8a;'>" + (polesOnly ? "" : "Service days do not change this price. ") + "Then " + fmt(block.addedRate.total) + " per pole every 28 days.</td></tr>");
         return;
       }
       rows.push(row("Unit", block.first.unit));
@@ -1002,6 +1002,10 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       service_label: serviceTypeLabel().toLowerCase(),
       total_display: smsMoney(total),
       date_display: smsPrimaryDate(),
+      service_title: serviceTitle(),
+      recurring_display: constructionMode && sheet.recurring > 0 ? smsMoney(sheet.recurring) : "",
+      service_schedule_line: serviceScheduleLine(),
+      service_schedule_html: serviceScheduleHtml(serviceScheduleLine()),
       company_name: COMPANY_NAME,
       company_phone: COMPANY_PHONE,
       company_email: quoteEmail,
@@ -1016,6 +1020,28 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     if (hasPole && hasRestroom) return "Portable Restroom & Temp Power Pole";
     if (hasPole) return "Temp Power Pole";
     return "Portable Restroom";
+  }
+
+  function serviceTitle() {
+    if (!constructionMode) return "Portable Restroom";
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    if (hasPole && hasRestroom) return "Portable Restroom & Temporary Power Pole";
+    if (hasPole) return "Temporary Power Pole";
+    return "Portable Restroom";
+  }
+
+  function serviceScheduleLine() {
+    if (!constructionMode || polesOnly) return "";
+    const hasService = sheet.blocks.some(block => block.product.first && block.product.first.service != null);
+    if (!hasService) return "";
+    return "Service: " + serviceDays + "x per week";
+  }
+
+  function serviceScheduleHtml(line) {
+    if (!line) return "";
+    const style = "font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;padding:8px 10px;border-bottom:1px solid #2a4a2a;";
+    return "<tr><td colspan='2' style='" + style + "'>" + line + "</td></tr>";
   }
 
   function smsUnitName(block) {

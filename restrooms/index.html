@@ -314,6 +314,25 @@ function serviceFrequency(unitId, variant) {
   return "Weekly";
 }
 
+function smsMoney(n) {
+  const num = Number(n);
+  if (!isFinite(num)) return "";
+  const whole = Math.abs(num - Math.round(num)) < 0.001;
+  return "$" + num.toLocaleString("en-US", whole
+    ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function smsDate(iso) {
+  const match = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return "";
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return "";
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return days[date.getDay()] + ", " + months[date.getMonth()] + " " + date.getDate();
+}
+
 function fmt(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "";
   return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -979,6 +998,10 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       quote_summary: summaryParts().join("\n"),
       quote_summary_html: summaryHtml(),
       total_quote: total.toFixed(2),
+      sms_summary: smsSummary(estNum),
+      service_label: serviceTypeLabel().toLowerCase(),
+      total_display: smsMoney(total),
+      date_display: smsPrimaryDate(),
       company_name: COMPANY_NAME,
       company_phone: COMPANY_PHONE,
       company_email: quoteEmail,
@@ -993,6 +1016,57 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     if (hasPole && hasRestroom) return "Portable Restroom & Temp Power Pole";
     if (hasPole) return "Temp Power Pole";
     return "Portable Restroom";
+  }
+
+  function smsUnitName(block) {
+    const product = block.product;
+    if (block.pole) {
+      const amp = (product.name.match(/^(\d+A)/) || [])[1];
+      return amp ? "Temp Power Pole " + amp : product.name;
+    }
+    let name = product.name.replace(" Portable Restroom", " Restroom");
+    if (product.first && product.first.service != null) name += " (" + serviceDays + "x/week service)";
+    return name;
+  }
+
+  function smsPrimaryDate() {
+    if (!constructionMode) return smsDate(draft.eventDate);
+    return smsDate(draft.deliveryDate);
+  }
+
+  function smsSummary(estNum) {
+    const linesOut = [];
+    if (estNum) linesOut.push("Estimate #" + estNum);
+    const address = draft.address.trim();
+    if (address) linesOut.push("Job site: " + address);
+    if (constructionMode) {
+      const when = smsDate(draft.deliveryDate);
+      if (when) {
+        const label = polesOnly ? "Install date" : (sheet.blocks.some(block => block.pole) ? "Delivery / install date" : "Delivery date");
+        linesOut.push(label + ": " + when);
+      }
+    } else {
+      const eventWhen = smsDate(draft.eventDate);
+      const deliveryWhen = smsDate(draft.deliveryDate);
+      if (eventWhen) linesOut.push("Event date: " + eventWhen);
+      if (deliveryWhen) linesOut.push("Delivery date: " + deliveryWhen);
+    }
+    const units = [];
+    if (constructionMode) {
+      sheet.blocks.forEach(block => units.push(block.qty + " x " + smsUnitName(block)));
+    } else {
+      ordered.forEach(line => {
+        if (line.kind === "addon") return;
+        units.push(lines[line.key].qty + " x " + line.name);
+      });
+    }
+    if (units.length) {
+      linesOut.push("");
+      units.forEach(line => linesOut.push(line));
+    }
+    if (total || total === 0) linesOut.push("Total today: " + smsMoney(total));
+    if (constructionMode && sheet.recurring > 0) linesOut.push("Then " + smsMoney(sheet.recurring) + " every 28 days");
+    return linesOut.join("\n");
   }
 
   function sheetKind() {

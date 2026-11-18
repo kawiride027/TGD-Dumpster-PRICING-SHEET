@@ -133,7 +133,7 @@ CSR quote tool for portable restrooms. It is a separate single-file app at `rest
 - **Send** matches the dumpster app: `POST` JSON to a LeadConnector inbound webhook. The constant is `RESTROOM_WEBHOOK_URL`, and it ships empty. While it is empty the quote still shows and copies, the post is skipped, and the screen says "GHL not connected yet". Do not paste the dumpster webhook (`CSR Dumpster Quote`) — that workflow sends the dumpster email and SMS.
 - **Estimate numbers** are `TGD-PR-YYYYMMDD-XXXX` (portable restroom). Dumpster estimates stay `TGD-`.
 - **Payload:** `estimate_number`, `csr_name`, `csr_email`, `customer_name`, `customer_phone`, `customer_email`, `job_address`, `service_type` (`Portable Restroom`), `use_case` (`Event` or `Construction`), `event_date`, `delivery_date`, `unit_count`, `unit_N_name`, `unit_N_qty`, `unit_N_price_each`, `unit_N_line_total`, `unit_N_service_frequency`, `unit_N_rental_period`, `quote_summary`, `quote_summary_html`, `total_quote`, `company_name`, `company_phone`, `company_email`, `timestamp`. `quote_summary` uses the dumpster emoji layout with 🚻 on each unit line.
-- The CSR list is copied from the dumpster app. Adding a CSR means editing both files.
+- The restroom CSR list matches the dumpster list except Evelyn, who is removed here. `CSR_NAMES` and `CSR_EMAILS` in `restrooms/index.html` stay in sync with each other. The dumpster `index.html` list is edited separately.
 - Pushing `main` publishes this page too. Same rule: do not push without the owner's go-ahead.
 
 ## How It Works

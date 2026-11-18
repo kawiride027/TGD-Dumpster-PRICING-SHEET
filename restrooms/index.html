@@ -38,11 +38,11 @@
 const { useState, useRef } = React;
 
 // =====================================================
-// CONFIG — CSR list matches the dumpster pricing app.
-// Edit BOTH apps when a CSR joins or leaves.
+// CONFIG — restroom CSR list. Evelyn is not on this list.
+// The dumpster app's CSR list is edited separately. Keep these two arrays in sync with each other.
 // =====================================================
-const CSR_NAMES = ["Evelyn","Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
-const CSR_EMAILS = {"Evelyn":"evelyn@thegreendumpster.com","Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
+const CSR_NAMES = ["Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
+const CSR_EMAILS = {"Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
 const COMPANY_NAME = "The Green Dumpster";
 const COMPANY_PHONE = "(818) 800-8888";
 const COMPANY_EMAIL = "info@thegreendumpster.com";
@@ -136,6 +136,18 @@ const RESTROOM_PRICES = {
         weekend: { price: 175, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 restock." },
       },
     },
+    {
+      id: "tray",
+      name: "Containment Tray",
+      blurb: "Add-on. Event rate is still a sample.",
+      image: "img/containment-tray.jpg",
+      imageAlt: "Black plastic containment tray",
+      disc: 0,
+      events: {
+        day: { price: 25, /* PLACEHOLDER — no event price yet */ bill: "per day", includes: "PLACEHOLDER event rate. Not a confirmed price." },
+        weekend: { price: 45, /* PLACEHOLDER — no event price yet */ bill: "weekend (Fri–Sun)", includes: "PLACEHOLDER event rate. Not a confirmed price." },
+      },
+    },
   ],
   // Long-term / construction price book. Events does not use this list.
   // Quote totals are the sum of the line items. Weekly service is the default.
@@ -186,8 +198,8 @@ const RESTROOM_PRICES = {
       name: "Containment Tray",
       emoji: "",
       blurb: "Add-on. Delivery is waived when it goes out with a unit.",
-      image: "",
-      imageAlt: "",
+      image: "img/containment-tray.jpg",
+      imageAlt: "Black plastic containment tray",
       addon: true,
       waiveDeliveryWithUnit: true,
       first: { unit: 15.00, delivery: 99.00 },
@@ -328,7 +340,8 @@ function buildConstructionQuote(picked, opts, serviceDays) {
     }
   });
   const total = money(blocks.reduce((sum, block) => sum + block.first.total + (block.added ? block.added.total : 0), 0));
-  return { blocks, charges, total };
+  const recurring = money(blocks.reduce((sum, block) => sum + block.addedRate.total * block.qty, 0));
+  return { blocks, charges, total, recurring };
 }
 
 function catalogLines(mode) {
@@ -491,8 +504,8 @@ function AppShell({ mode, children }) {
 
 function TypePicker({ mode, onChoose }) {
   const choices = [
-    { id: "events", title: "Event", blurb: "A day or a weekend", image: "img/deluxe-flushable-restroom-with-sink.webp", imageAlt: "Deluxe portable restroom" },
-    { id: "construction", title: "Long-term Construction Site", blurb: "28-day periods with service", image: "img/standard-restroom.webp", imageAlt: "Standard portable restroom" },
+    { id: "events", title: "EVENT" },
+    { id: "construction", title: "Long Term Construction Site" },
   ];
   return (
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
@@ -503,14 +516,8 @@ function TypePicker({ mode, onChoose }) {
         {choices.map(choice => {
           const on = mode === choice.id;
           return (
-            <button key={choice.id} type="button" onClick={() => onChoose(choice.id)} aria-pressed={on} style={{ textAlign: "left", cursor: "pointer", borderRadius: 8, overflow: "hidden", background: on ? "#f0fdf4" : "#fff", border: on ? "2px solid #16a34a" : "2px solid #e6ecea", boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none", color: "#101d1f", padding: 0, position: "relative" }}>
-              <div style={{ height: 220, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-                <img src={choice.image} alt={choice.imageAlt} style={{ maxWidth: "100%", maxHeight: 190, objectFit: "contain" }} />
-              </div>
-              <div style={{ padding: "14px 14px 16px" }}>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{choice.title}</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 4 }}>{choice.blurb}</div>
-              </div>
+            <button key={choice.id} type="button" onClick={() => onChoose(choice.id)} aria-pressed={on} style={{ minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", cursor: "pointer", borderRadius: 8, background: on ? "#f0fdf4" : "#fff", border: on ? "2px solid #16a34a" : "2px solid #e6ecea", boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none", color: "#101d1f", padding: "28px 20px", position: "relative" }}>
+              <span style={{ fontSize: choice.id === "events" ? 64 : 40, fontWeight: 800, letterSpacing: -1, lineHeight: 1.05 }}>{choice.title}</span>
               {on && <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>}
             </button>
           );
@@ -644,6 +651,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     linesOut.push(RESTROOM_PRICES.rentalTerms);
     linesOut.push("");
     linesOut.push("💲 Total: " + fmt(sheet.total));
+    linesOut.push("Then " + fmt(sheet.recurring) + " every 28 days");
     return linesOut;
   }
 
@@ -668,19 +676,23 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   }
 
   function constructionHtml() {
+    const cell = "font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;";
+    const label = cell + "padding:8px 10px;border-bottom:1px solid #2a4a2a;";
+    const amount = label + "text-align:right;white-space:nowrap;";
     const rows = [];
     sheet.blocks.forEach(block => {
       const p = block.product;
       const title = (p.emoji ? p.emoji + " " : "") + p.name;
-      const row = (label, amount) => "<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-size:13px;'>" + label + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;white-space:nowrap;'>" + fmt(amount) + "</td></tr>";
-      rows.push("<tr><td colspan='2' style='padding:10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:800;'>" + title + " (x" + block.qty + ")</td></tr>");
+      const row = (text, value, valueColor) => "<tr><td style='" + label + "'>" + text + "</td><td style='" + amount + "color:" + (valueColor || "#ffffff") + ";'>" + fmt(value) + "</td></tr>";
+      rows.push("<tr><td colspan='2' style='" + label + "font-size:15px;font-weight:800;'>" + title + " (x" + block.qty + ")</td></tr>");
       rows.push(row("Unit", block.first.unit));
       rows.push(row(block.waive ? "Delivery &amp; Set-Up (waived)" : "Delivery &amp; Set-Up (one-time)", block.first.delivery));
       if (p.first.service != null) rows.push(row("Service Fee (" + freqLabel(block.freq) + ")", block.first.service));
-      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#2ECC40;font-weight:800;'>First 28 days</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#2ECC40;font-weight:800;'>" + fmt(block.first.total) + "</td></tr>");
-      if (block.added) rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;'>Added 28 days (x" + block.extra + ")</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;'>" + fmt(block.added.total) + "</td></tr>");
+      rows.push(row("First 28 days", block.first.total, "#2ECC40"));
+      if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
     });
-    return "<p style='margin:0 0 8px;color:#8aaa8a;font-size:12px;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='padding:12px 10px;font-weight:800;color:#ffffff;'>Total</td><td style='padding:12px 10px;text-align:right;font-weight:800;color:#ffffff;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+    rows.push("<tr><td colspan='2' style='" + label + "font-size:14px;font-weight:700;color:#ffffff;'>Then " + fmt(sheet.recurring) + " every 28 days</td></tr>");
+    return "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
   }
 
   function summaryHtml() {
@@ -689,14 +701,14 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     ordered.forEach(line => {
       const info = lines[line.key];
       const lineTotal = info.finalPrice * info.qty;
-      let priceCell = "<span style='white-space:nowrap;'>" + fmt(info.finalPrice) + "</span>";
+      let priceCell = "<span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.finalPrice) + "</span>";
       if (info.discount > 0) {
-        priceCell = "<s style='color:#8aaa8a;white-space:nowrap;'>" + fmt(info.basePrice) + "</s><br><span style='white-space:nowrap;'>" + fmt(info.finalPrice) + "</span> <span style='color:#2ECC40;font-size:11px;white-space:nowrap;'>(saved $" + info.discount + ")</span>";
+        priceCell = "<s style='color:#8aaa8a;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.basePrice) + "</s><br><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(info.finalPrice) + "</span> <span style='color:#2ECC40;font-size:11px;line-height:16px;white-space:nowrap;'>(saved $" + info.discount + ")</span>";
       }
       rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;'>" + line.name + "</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;width:30px;'>" + info.qty + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;'>" + priceCell + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;white-space:nowrap;'>" + fmt(lineTotal) + "</td></tr>");
       rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
     });
-    const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
+    const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
     return banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
   }
 
@@ -763,7 +775,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       service_type: "Portable Restroom",
       use_case: useCase(),
       ...(constructionMode
-        ? { service_days_per_week: serviceDays, requested_delivery_date: draft.deliveryDate }
+        ? { service_days_per_week: serviceDays, requested_delivery_date: draft.deliveryDate, recurring_28_day_total: sheet.recurring.toFixed(2) }
         : { event_date: draft.eventDate, delivery_date: draft.deliveryDate }),
       unit_count: ordered.length,
       ...flat,
@@ -818,7 +830,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   }
 
   const modeBlurb = mode === "events"
-    ? "Events prices are still samples. A day rate and a weekend rate are separate lines."
+    ? "Events prices are still samples. A few days or a weekend can each be a line."
     : RESTROOM_PRICES.rentalTerms;
   const preview = hasQuote ? summaryParts().join("\n") : "";
 
@@ -1005,6 +1017,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
         })}
 
         {constructionMode && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: "#fde68a", lineHeight: 1.45 }}>{RESTROOM_PRICES.rentalTerms}</div>}
+        {constructionMode && <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#fde68a" }}>Then {fmt(sheet.recurring)} every 28 days</div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#86a086" }}>Quote total ({totalQty} {totalQty === 1 ? "item" : "items"})</span>
           <span style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" }}>{fmt(total)}</span>

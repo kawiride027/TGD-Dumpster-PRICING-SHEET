@@ -136,18 +136,6 @@ const RESTROOM_PRICES = {
         weekend: { price: 175, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 restock." },
       },
     },
-    {
-      id: "vip-2",
-      name: "VIP Trailer (2-stall)",
-      blurb: "Two private stalls",
-      image: "img/vip-2-stall-restroom-trailer.webp",
-      imageAlt: "Two-stall restroom trailer on a wheeled chassis",
-      disc: 0,
-      events: {
-        day: { price: 1200, /* PLACEHOLDER */ bill: "per day", includes: "1-day trailer rental. Add delivery as its own line." },
-        weekend: { price: 2600, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
-      },
-    },
   ],
   // Long-term / construction price book. Events does not use this list.
   // Quote totals are the sum of the line items. Weekly service is the default.
@@ -273,10 +261,9 @@ function isSample(mode) {
   return !!flag;
 }
 
-function freqLabel(mult) {
-  if (mult === 2) return "2x per week";
-  if (mult === 3) return "3x per week";
-  return "Weekly";
+function freqLabel(days) {
+  const n = days || 1;
+  return n === 1 ? "1 day/week" : n + " days/week";
 }
 
 // One 28-day period for one product. qty is unit count.
@@ -306,15 +293,15 @@ function periodMath(spec, qty, freqMult, waiveDelivery) {
   };
 }
 
-function buildConstructionQuote(picked, opts) {
+function buildConstructionQuote(picked, opts, serviceDays) {
   const selected = RESTROOM_PRICES.construction.filter(p => picked[p.id]);
   const withUnit = selected.some(p => !p.addon);
   const blocks = [];
   const charges = [];
   selected.forEach(product => {
-    const opt = opts[product.id] || { qty: 1, freq: 1, extra: 0 };
+    const opt = opts[product.id] || { qty: 1, extra: 0 };
     const qty = Math.min(10, Math.max(1, opt.qty || 1));
-    const freq = product.addon || product.first.service == null ? 1 : (opt.freq || 1);
+    const freq = product.addon || product.first.service == null ? 1 : (serviceDays || 1);
     const extra = Math.min(10, Math.max(0, opt.extra || 0));
     const waive = !!(product.waiveDeliveryWithUnit && withUnit);
     const first = periodMath(product.first, qty, freq, waive);
@@ -480,16 +467,6 @@ function SampleBanner({ mode }) {
   );
 }
 
-function ModeTabs({ mode, onMode }) {
-  return (
-    <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#121e12", borderRadius: 12, padding: 4 }}>
-      {[["construction", "Construction"], ["events", "Events"]].map(([id, label]) => (
-        <button key={id} type="button" onClick={() => onMode(id)} style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", background: mode === id ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: mode === id ? "#fff" : "#4a6b4a" }}>{label}</button>
-      ))}
-    </div>
-  );
-}
-
 function AppShell({ mode, children }) {
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
@@ -512,17 +489,50 @@ function AppShell({ mode, children }) {
   );
 }
 
-function UnitPicker({ mode, onMode, picked, onToggle, onContinue }) {
+function TypePicker({ mode, onChoose }) {
+  const choices = [
+    { id: "events", title: "Event", blurb: "A day or a weekend", image: "img/deluxe-flushable-restroom-with-sink.webp", imageAlt: "Deluxe portable restroom" },
+    { id: "construction", title: "Long-term Construction Site", blurb: "28-day periods with service", image: "img/standard-restroom.webp", imageAlt: "Standard portable restroom" },
+  ];
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80", marginBottom: 8 }}>Step 1 of 3</div>
+      <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Is this for an Event or a Long-term Construction Site?</h1>
+      <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18 }}>Click one. The next card only shows products for that type.</p>
+      <div className="unit-grid" role="group" aria-label="Job type" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        {choices.map(choice => {
+          const on = mode === choice.id;
+          return (
+            <button key={choice.id} type="button" onClick={() => onChoose(choice.id)} aria-pressed={on} style={{ textAlign: "left", cursor: "pointer", borderRadius: 8, overflow: "hidden", background: on ? "#f0fdf4" : "#fff", border: on ? "2px solid #16a34a" : "2px solid #e6ecea", boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none", color: "#101d1f", padding: 0, position: "relative" }}>
+              <div style={{ height: 220, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+                <img src={choice.image} alt={choice.imageAlt} style={{ maxWidth: "100%", maxHeight: 190, objectFit: "contain" }} />
+              </div>
+              <div style={{ padding: "14px 14px 16px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{choice.title}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 4 }}>{choice.blurb}</div>
+              </div>
+              {on && <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
   const items = mode === "construction" ? RESTROOM_PRICES.construction : RESTROOM_PRICES.units;
   const selected = items.filter(unit => picked[unit.id]);
   return (
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80", marginBottom: 8 }}>Step 1 of 2</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#86efac", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Event or construction</button>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 2 of 3</div>
+      </div>
       <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Which unit do you need?</h1>
       <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18, maxWidth: 640 }}>
-        Click a unit to select it. Pick more than one if the job needs them. The job address is next. The price is the same for every address.
+        {mode === "construction" ? "Long-term construction products. Click every unit this job needs." : "Event products. Click every unit this job needs. These prices are still samples."}
       </p>
-      <ModeTabs mode={mode} onMode={onMode} />
       <div className="unit-grid" role="group" aria-label="Units">
         {items.map(unit => {
           const on = !!picked[unit.id];
@@ -567,7 +577,7 @@ function UnitPicker({ mode, onMode, picked, onToggle, onContinue }) {
           boxShadow: selected.length ? "0 4px 20px rgba(245,158,11,0.25)" : "none",
         }}
       >
-        {selected.length === 0 ? "Select a unit to continue" : "Continue to quote details · " + selected.length + (selected.length === 1 ? " unit" : " units")}
+        {selected.length === 0 ? "Select a unit to continue" : "Continue to the quote · " + selected.length + (selected.length === 1 ? " unit" : " units")}
       </button>
       <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#4a6b4a" }}>
         {mode === "construction" ? "Construction price book · 28-day periods" : items.length + " event units · sample prices"}
@@ -576,9 +586,9 @@ function UnitPicker({ mode, onMode, picked, onToggle, onContinue }) {
   );
 }
 
-function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
+function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onServiceDays, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
   const constructionMode = mode === "construction";
-  const sheet = constructionMode ? buildConstructionQuote(picked, opts) : null;
+  const sheet = constructionMode ? buildConstructionQuote(picked, opts, serviceDays) : null;
   const catalog = catalogLines(mode);
   const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
   const total = constructionMode ? sheet.total : ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0);
@@ -612,6 +622,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
   // Same shape as the dumpster quote text. 🚻 stands in for the dumpster's 🟢.
   function constructionSummary() {
     const linesOut = [];
+    linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
+    linesOut.push("");
     sheet.blocks.forEach((block, idx) => {
       const p = block.product;
       if (idx > 0) linesOut.push("");
@@ -750,8 +762,9 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
       job_address: draft.address.trim(),
       service_type: "Portable Restroom",
       use_case: useCase(),
-      event_date: draft.eventDate,
-      delivery_date: draft.deliveryDate,
+      ...(constructionMode
+        ? { service_days_per_week: serviceDays, requested_delivery_date: draft.deliveryDate }
+        : { event_date: draft.eventDate, delivery_date: draft.deliveryDate }),
       unit_count: ordered.length,
       ...flat,
       quote_summary: summaryParts().join("\n"),
@@ -813,12 +826,11 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
     <div style={{ animation: "fadeSlide 0.35s ease" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#86efac", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Units</button>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 2 of 2</div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 3 of 3</div>
       </div>
       <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 6 }}>Quote details</h1>
       <p style={{ fontSize: 13, color: "#6b8f6b", marginBottom: 14 }}>Job address is free text. Nothing on this page looks up a zip code.</p>
 
-      <ModeTabs mode={mode} onMode={onMode} />
       <div style={{ fontSize: 13, color: "#86a086", marginBottom: 16, lineHeight: 1.45 }}>{modeBlurb}</div>
 
       <div style={{ borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", padding: 20 }}>
@@ -844,29 +856,57 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
             <input value={draft.custPhone} onChange={e => setDraft({ custPhone: e.target.value })} placeholder="(818) 555-1234" type="tel" style={inputStyle} />
           </div>
         </div>
-        <div className="q-2" style={{ marginBottom: 12 }}>
-          <div>
-            <label style={labelStyle}>Email</label>
-            <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+        {constructionMode ? (
+          <div className="q-2" style={{ marginBottom: 12 }}>
+            <div>
+              <label style={labelStyle}>Email</label>
+              <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Requested Delivery Date</label>
+              <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
+            </div>
           </div>
+        ) : (
           <div>
-            <label style={labelStyle}>Event date</label>
-            <input value={draft.eventDate} onChange={e => setDraft({ eventDate: e.target.value })} type="date" style={inputStyle} />
+            <div className="q-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Event date</label>
+                <input value={draft.eventDate} onChange={e => setDraft({ eventDate: e.target.value })} type="date" style={inputStyle} />
+              </div>
+            </div>
+            <div className="q-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Delivery date</label>
+                <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
+              </div>
+              <div />
+            </div>
           </div>
-        </div>
-        <div className="q-2" style={{ marginBottom: 12 }}>
-          <div>
-            <label style={labelStyle}>Delivery date</label>
-            <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
-          </div>
-          <div />
-        </div>
+        )}
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Job address</label>
           <input value={draft.address} onChange={e => setDraft({ address: e.target.value })} placeholder="100 Main St, Los Angeles" style={inputStyle} />
           <div style={{ fontSize: 11, color: "#4a6b4a", marginTop: 5 }}>Street address for the order. Price does not change by city.</div>
         </div>
 
+        {constructionMode && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>How many days per week of service?</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {[1, 2, 3].map(days => (
+                <button key={days} type="button" onClick={() => onServiceDays(days)} aria-pressed={serviceDays === days} style={{ padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 800, background: serviceDays === days ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: serviceDays === days ? "2px solid #4ade80" : "1px solid #2d4a2d", color: serviceDays === days ? "#fff" : "#86a086" }}>
+                  {days === 1 ? "1 · Weekly" : String(days)}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: "#86a086", marginTop: 6 }}>Service fee is multiplied by this number. Unit price and delivery stay the same.</div>
+          </div>
+        )}
         <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>
         {constructionMode && sheet.blocks.map(block => {
           const p = block.product;
@@ -883,13 +923,6 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
                   <button type="button" onClick={() => onOpt(p.id, { qty: Math.min(10, opt.qty + 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
                 </div>
               </div>
-              {p.first.service != null && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                  {[1, 2, 3].map(mult => (
-                    <button key={mult} type="button" onClick={() => onOpt(p.id, { freq: mult })} style={{ padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, background: opt.freq === mult ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#121e12", border: opt.freq === mult ? "2px solid #4ade80" : "1px solid #2d4a2d", color: opt.freq === mult ? "#fff" : "#86a086" }}>{freqLabel(mult)}</button>
-                  ))}
-                </div>
-              )}
               {[
                 ["Unit", block.first.unit],
                 [block.waive ? "Delivery & Set-Up (one-time) — waived, delivered with a unit" : "Delivery & Set-Up (one-time)", block.first.delivery],
@@ -1067,11 +1100,12 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, onMode, onBack, onTogg
 }
 
 function App() {
-  const [screen, setScreen] = useState("pick");
-  const [mode, setMode] = useState("construction");
+  const [screen, setScreen] = useState("type");
+  const [mode, setMode] = useState("");
   const [picked, setPicked] = useState({});
   const [lines, setLines] = useState({});
   const [opts, setOpts] = useState({});
+  const [serviceDays, setServiceDays] = useState(1);
   const [draft, setDraftState] = useState({
     csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "",
   });
@@ -1080,11 +1114,23 @@ function App() {
 
   function togglePick(id) {
     setPicked(prev => ({ ...prev, [id]: !prev[id] }));
-    setOpts(prev => prev[id] ? prev : { ...prev, [id]: { qty: 1, freq: 1, extra: 0 } });
+    setOpts(prev => prev[id] ? prev : { ...prev, [id]: { qty: 1, extra: 0 } });
   }
 
   function onOpt(id, patch) {
-    setOpts(prev => ({ ...prev, [id]: { qty: 1, freq: 1, extra: 0, ...(prev[id] || {}), ...patch } }));
+    setOpts(prev => ({ ...prev, [id]: { qty: 1, extra: 0, ...(prev[id] || {}), ...patch } }));
+  }
+
+  function chooseType(nextMode) {
+    if (nextMode !== mode) {
+      setPicked({});
+      setLines({});
+      setOpts({});
+      setServiceDays(1);
+    }
+    setMode(nextMode);
+    setScreen("products");
+    window.scrollTo(0, 0);
   }
 
   function continueToQuote() {
@@ -1093,17 +1139,6 @@ function App() {
     setLines(prev => mergeLines(mode, ids, prev));
     setScreen("quote");
     window.scrollTo(0, 0);
-  }
-
-  function changeMode(nextMode) {
-    if (nextMode === mode) return;
-    const allow = {};
-    (nextMode === "construction" ? RESTROOM_PRICES.construction : RESTROOM_PRICES.units).forEach(item => { allow[item.id] = true; });
-    const nextPicked = {};
-    Object.keys(picked).forEach(id => { if (picked[id] && allow[id]) nextPicked[id] = true; });
-    setPicked(nextPicked);
-    if (nextMode === "events") setLines(mergeLines("events", Object.keys(nextPicked), lines));
-    setMode(nextMode);
   }
 
   function toggleLine(key) {
@@ -1138,19 +1173,22 @@ function App() {
   }
 
   function startOver() {
-    setScreen("pick");
-    setMode("construction");
+    setScreen("type");
+    setMode("");
     setPicked({});
     setLines({});
     setOpts({});
+    setServiceDays(1);
     setDraftState({ csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "" });
     window.scrollTo(0, 0);
   }
 
   return (
     <AppShell mode={mode}>
-      {screen === "pick" ? (
-        <UnitPicker mode={mode} onMode={changeMode} picked={picked} onToggle={togglePick} onContinue={continueToQuote} />
+      {screen === "type" ? (
+        <TypePicker mode={mode} onChoose={chooseType} />
+      ) : screen === "products" ? (
+        <UnitPicker mode={mode} picked={picked} onToggle={togglePick} onContinue={continueToQuote} onBack={() => { setScreen("type"); window.scrollTo(0, 0); }} />
       ) : (
         <QuoteDetails
           mode={mode}
@@ -1158,8 +1196,9 @@ function App() {
           lines={lines}
           opts={opts}
           onOpt={onOpt}
-          onMode={changeMode}
-          onBack={() => { setScreen("pick"); window.scrollTo(0, 0); }}
+          serviceDays={serviceDays}
+          onServiceDays={setServiceDays}
+          onBack={() => { setScreen("products"); window.scrollTo(0, 0); }}
           onToggleLine={toggleLine}
           onQty={setQty}
           onDiscount={setDiscount}

@@ -45,8 +45,21 @@ const { useState, useRef } = React;
 const CSR_NAMES = ["Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
 const CSR_EMAILS = {"Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
 const COMPANY_NAME = "The Green Dumpster/All Site Rentals";
-const COMPANY_PHONE = "(818) 800-8888";
-const COMPANY_EMAIL = "info@thegreendumpster.com";
+const COMPANY_PHONE = "(818) 960-1941";
+const COMPANY_PHONE_TEL = "tel:+18189601941";
+const COMPANY_EMAIL_FALLBACK = "info@thegreendumpster.com";
+
+function companyEmailFor(csrName) {
+  return (csrName && CSR_EMAILS[csrName]) || COMPANY_EMAIL_FALLBACK;
+}
+
+function contactHtml(email) {
+  const text = "font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#ffffff;";
+  const link = "color:#ffffff;font-size:14px;line-height:20px;text-decoration:none;";
+  return "<p style='margin:0 0 4px;" + text + "font-size:15px;font-weight:800;'>" + COMPANY_NAME + "</p>"
+    + "<p style='margin:0 0 2px;" + text + "'><a href='" + COMPANY_PHONE_TEL + "' style='" + link + "'>" + COMPANY_PHONE + "</a></p>"
+    + "<p style='margin:0 0 8px;" + text + "'><a href='mailto:" + email + "' style='" + link + "'>" + email + "</a></p>";
+}
 
 // LeadConnector inbound webhook for the restroom follow-up workflow.
 // Same POST as the dumpster app (JSON, Content-Type: application/json) but a
@@ -166,6 +179,18 @@ const RESTROOM_PRICES = {
       // First 28 days: $10 + $99 + $159.40 = $268.40. Added period service stays $158.98.
       first: { unit: 10.00, delivery: 99.00, service: 159.40 },
       added: { unit: 10.00, service: 158.98 },
+    },
+    {
+      id: "deluxe-sink",
+      name: "Deluxe with Sink",
+      emoji: "🚻",
+      blurb: "Sink inside the unit",
+      image: "img/deluxe-restroom-with-sink.webp",
+      imageAlt: "Teal deluxe portable restroom with an interior sink",
+      // PLACEHOLDER: awaiting Dustin's real Deluxe w/ Sink construction price
+      pricePending: true,
+      first: { unit: 10.00, delivery: 99.00, service: 207.47 },
+      added: { unit: 10.00, service: 207.47 },
     },
     {
       id: "deluxe-flush",
@@ -475,7 +500,7 @@ function SampleBanner({ mode }) {
   );
 }
 
-function AppShell({ mode, children }) {
+function AppShell({ mode, email, children }) {
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
       <div style={{ position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" }} />
@@ -485,11 +510,20 @@ function AppShell({ mode, children }) {
             <img className="brand-lockup" src="img/tgd-asr-logo.webp" alt={COMPANY_NAME} />
             <div style={{ marginTop: 10, fontSize: 16, fontWeight: 800, color: "#fff", lineHeight: 1.35 }}>{COMPANY_NAME}</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#86a086", marginTop: 2 }}>Portable Restroom Quote</div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 14, fontWeight: 700 }}>
+              <a href={COMPANY_PHONE_TEL} style={{ color: "#86efac", textDecoration: "none" }}>{COMPANY_PHONE}</a>
+              <a href={"mailto:" + email} style={{ color: "#86efac", textDecoration: "none" }}>{email}</a>
+            </div>
           </div>
           <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12", flex: "0 0 auto" }}>Dumpster pricing</a>
         </div>
         <SampleBanner mode={mode} />
         {children}
+        <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #1e2e1e", display: "flex", flexWrap: "wrap", gap: "6px 16px", alignItems: "center", fontSize: 13 }}>
+          <span style={{ color: "#6b8f6b", fontWeight: 700 }}>{COMPANY_NAME}</span>
+          <a href={COMPANY_PHONE_TEL} style={{ color: "#86efac", fontWeight: 700, textDecoration: "none" }}>{COMPANY_PHONE}</a>
+          <a href={"mailto:" + email} style={{ color: "#86efac", fontWeight: 700, textDecoration: "none" }}>{email}</a>
+        </div>
       </div>
     </div>
   );
@@ -556,6 +590,7 @@ function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
               <div style={{ padding: "12px 12px 14px" }}>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>{(unit.emoji ? unit.emoji + " " : "") + unit.name}</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 3 }}>{unit.blurb}</div>
+                {unit.pricePending && <div style={{ display: "inline-block", marginTop: 8, padding: "3px 7px", borderRadius: 6, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "uppercase" }}>Price pending</div>}
               </div>
               {on && (
                 <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>
@@ -589,6 +624,7 @@ function UnitPicker({ mode, picked, onToggle, onContinue, onBack }) {
 function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onServiceDays, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
   const constructionMode = mode === "construction";
   const sheet = constructionMode ? buildConstructionQuote(picked, opts, serviceDays) : null;
+  const quoteEmail = companyEmailFor(draft.csrName);
   const catalog = catalogLines(mode);
   const ordered = constructionMode ? sheet.charges : catalog.filter(line => lines[line.key]);
   const eventsDelivery = (!constructionMode && ordered.length) ? RESTROOM_PRICES.eventsDelivery : 0;
@@ -624,6 +660,8 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
   function constructionSummary() {
     const linesOut = [];
     linesOut.push(COMPANY_NAME);
+    linesOut.push(COMPANY_PHONE);
+    linesOut.push(quoteEmail);
     linesOut.push("");
     linesOut.push("Service days per week: " + serviceDays + (serviceDays === 1 ? " (weekly)" : ""));
     linesOut.push("");
@@ -653,7 +691,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
 
   function summaryParts() {
     if (constructionMode) return constructionSummary();
-    const linesOut = [COMPANY_NAME, ""];
+    const linesOut = [COMPANY_NAME, COMPANY_PHONE, quoteEmail, ""];
     if (isSample(mode)) {
       linesOut.push("⚠️ SAMPLE PRICES - not final");
       linesOut.push("");
@@ -694,7 +732,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       if (block.added) rows.push(row("Added 28 days (x" + block.extra + ")", block.added.total));
     });
     rows.push("<tr><td colspan='2' style='" + label + "font-size:14px;font-weight:700;color:#ffffff;'>Then " + fmt(sheet.recurring) + " every 28 days</td></tr>");
-    return "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:800;color:#ffffff;'>" + COMPANY_NAME + "</p><p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
+    return contactHtml(quoteEmail) + "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:18px;color:#8aaa8a;'>" + RESTROOM_PRICES.rentalTerms + "</p><table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;color:#ffffff;background:#1a3a1a;border-radius:14px;'><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td style='" + cell + "padding:12px 10px;font-weight:800;'>Total</td><td style='" + cell + "padding:12px 10px;text-align:right;font-weight:800;white-space:nowrap;'>" + fmt(sheet.total) + "</td></tr></tbody></table>";
   }
 
   function summaryHtml() {
@@ -714,7 +752,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;line-height:20px;'>Delivery &amp; Set-Up</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;line-height:20px;'>1</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;line-height:18px;'><span style='color:#ffffff;font-size:13px;line-height:18px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</span></td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;line-height:20px;white-space:nowrap;'>" + fmt(eventsDelivery) + "</td></tr>");
       rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;line-height:16px;color:#8aaa8a;'>per drop &bull; one charge for the quote, not per unit</td></tr>");
     }
-    const brand = "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:800;color:#ffffff;'>" + COMPANY_NAME + "</p>";
+    const brand = contactHtml(quoteEmail);
     const banner = isSample(mode) ? "<p style='margin:0 0 8px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
     return brand + banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
   }
@@ -784,7 +822,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     return {
       estimate_number: estNum,
       csr_name: draft.csrName,
-      csr_email: CSR_EMAILS[draft.csrName] || "office@thegreendumpster.com",
+      csr_email: quoteEmail,
       customer_name: draft.custName,
       customer_phone: draft.custPhone,
       customer_email: draft.custEmail,
@@ -801,7 +839,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       total_quote: total.toFixed(2),
       company_name: COMPANY_NAME,
       company_phone: COMPANY_PHONE,
-      company_email: COMPANY_EMAIL,
+      company_email: quoteEmail,
       timestamp: new Date().toISOString(),
     };
   }
@@ -945,7 +983,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
             <div key={p.id} style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 {p.image ? <img src={p.image} alt="" style={{ width: 42, height: 42, objectFit: "contain", background: "#f4f8f7", borderRadius: 6 }} /> : <div style={{ width: 42, height: 42, borderRadius: 6, background: "#163016", display: "flex", alignItems: "center", justifyContent: "center" }}>{p.emoji || "+"}</div>}
-                <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{(p.emoji ? p.emoji + " " : "") + p.name}</div>
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: "#fff" }}>{(p.emoji ? p.emoji + " " : "") + p.name}{p.pricePending ? <span style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 6, background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 800, letterSpacing: 0.3, textTransform: "uppercase", verticalAlign: "middle" }}>Price pending</span> : null}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
                   <button type="button" onClick={() => onOpt(p.id, { qty: Math.max(1, opt.qty - 1) })} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
@@ -1102,7 +1140,7 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
                     <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{(p.emoji ? p.emoji + " " : "") + p.name}</td>
                     <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>Unit {fmt(p.first.unit)}{p.first.delivery ? " + delivery " + fmt(p.first.delivery) : ""}{p.first.service != null ? " + service " + fmt(p.first.service) : ""}</td>
                     <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(first.total)}{p.first.listedTotal != null ? " book" : ""}</td>
-                    <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Added 28 days {fmt(added.total)}{p.waiveDeliveryWithUnit ? ". Delivery waived with a unit." : ""}</td>
+                    <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>Added 28 days {fmt(added.total)}{p.waiveDeliveryWithUnit ? ". Delivery waived with a unit." : ""}{p.pricePending ? " Price pending." : ""}</td>
                   </tr>
                 );
               }) : catalog.map((line, i) => (
@@ -1233,7 +1271,7 @@ function App() {
   }
 
   return (
-    <AppShell mode={mode}>
+    <AppShell mode={mode} email={companyEmailFor(draft.csrName)}>
       {screen === "type" ? (
         <TypePicker mode={mode} onChoose={chooseType} />
       ) : screen === "products" ? (

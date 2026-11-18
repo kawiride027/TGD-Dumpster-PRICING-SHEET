@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TGD Restroom Pricing</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚻</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0f0a; }
+  input::placeholder, textarea::placeholder { color: #3d5a3d !important; font-weight: 400 !important; }
+  select { color: #fff; }
+  button, input, select, textarea { font-family: inherit; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes successPulse { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0f0a; }
+  ::-webkit-scrollbar-thumb { background: #2d4a2d; border-radius: 3px; }
+  .unit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .q-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .q-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .price-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  @media (max-width: 800px) {
+    .unit-grid { grid-template-columns: 1fr 1fr; }
+    .q-3, .q-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 460px) {
+    .unit-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef } = React;
+
+// =====================================================
+// CONFIG — CSR list matches the dumpster pricing app.
+// Edit BOTH apps when a CSR joins or leaves.
+// =====================================================
+const CSR_NAMES = ["Evelyn","Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
+const CSR_EMAILS = {"Evelyn":"evelyn@thegreendumpster.com","Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
+const COMPANY_NAME = "The Green Dumpster";
+const COMPANY_PHONE = "(818) 800-8888";
+const COMPANY_EMAIL = "info@thegreendumpster.com";
+
+// LeadConnector inbound webhook for the restroom follow-up workflow.
+// Same POST as the dumpster app (JSON, Content-Type: application/json) but a
+// different trigger. Leave this empty until that workflow exists.
+// Do not paste the dumpster webhook. That workflow is "CSR Dumpster Quote"
+// and it sends the dumpster email and SMS.
+const RESTROOM_WEBHOOK_URL = "";
+// Optional. Leave empty to skip the sheet log. Not the dumpster sheet URL.
+const GOOGLE_SHEET_URL = "";
+
+// =====================================================
+// RESTROOM_PRICES — edit this object in the GitHub web editor.
+//
+// samplePrices: the SAMPLE PRICES banner is on while this is true.
+//   Set it to false only after every number below is a confirmed rate.
+// disc: max discount in dollars. Must be a multiple of 5.
+//   0 means the quote builder will not offer a discount on that item.
+// price: null hides that line (the product is not offered that way).
+//
+// Events: a day rate and a weekend rate are separate quote lines.
+// Construction: the first 28 days and each added 28 days are separate quote lines.
+//   The first 28 days includes weekly service. Add-ons are lines too.
+// Photos in restrooms/img/ are copies of All Site Rentals product photos
+// (allsiterentals.com/asr/img/photos/) so this page still loads if that site changes.
+// =====================================================
+const RESTROOM_PRICES = {
+  samplePrices: true,
+  brokerNote: "Restrooms are brokered to Global Sanitation or SoCal. Quote the customer-facing price only. Do not discuss vendor cost.",
+  units: [
+    {
+      id: "standard",
+      name: "Standard Unit",
+      blurb: "Built for job sites",
+      image: "img/standard-restroom.webp",
+      imageAlt: "Teal standard portable restroom",
+      disc: 0,
+      events: {
+        day: { price: 175, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Add delivery and service as their own lines." },
+        weekend: { price: 375, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+      construction: {
+        first: { price: 268, /* PLACEHOLDER — recent CSR quotes used about $268 for the first 28 days. Not a confirmed price list. */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
+        extra: { price: 230, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
+      },
+    },
+    {
+      id: "deluxe-sink",
+      name: "Deluxe with Sink",
+      blurb: "Sink inside the unit",
+      image: "img/deluxe-restroom-with-sink.webp",
+      imageAlt: "Teal deluxe portable restroom with an interior sink",
+      disc: 0,
+      events: {
+        day: { price: 225, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Sink inside the unit. Add delivery and service as their own lines." },
+        weekend: { price: 475, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+      construction: {
+        first: { price: 290, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
+        extra: { price: 250, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
+      },
+    },
+    {
+      id: "deluxe-flush",
+      name: "Deluxe Flushable",
+      blurb: "Flushing toilet and sink",
+      image: "img/deluxe-flushable-restroom-with-sink.webp",
+      imageAlt: "Deluxe flushable portable restroom",
+      disc: 0,
+      events: {
+        day: { price: 275, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Flushing toilet and sink. Add delivery and service as their own lines." },
+        weekend: { price: 575, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+      construction: {
+        first: { price: 316, /* PLACEHOLDER — recent CSR quotes used about $316 for the first 28 days. Not a confirmed price list. */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
+        extra: { price: 270, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
+      },
+    },
+    {
+      id: "ada",
+      name: "ADA Restroom",
+      blurb: "Wheelchair accessible",
+      image: "img/ada-restroom.webp",
+      imageAlt: "Gray ADA portable restroom with a wheelchair symbol",
+      disc: 0,
+      events: {
+        day: { price: 200, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Ground-level accessible unit. Add delivery and service as their own lines." },
+        weekend: { price: 425, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+      construction: {
+        first: { price: 340, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
+        extra: { price: 290, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days on a unit already out. Weekly service included." },
+      },
+    },
+    {
+      id: "handwash",
+      name: "Hand-Wash Station",
+      blurb: "Portable sink for crews and guests",
+      image: "img/handwashing-station.webp",
+      imageAlt: "Gray portable hand-washing station",
+      disc: 0,
+      events: {
+        day: { price: 85, /* PLACEHOLDER */ bill: "per day", includes: "1-day rental. Soap and paper towels stocked at delivery." },
+        weekend: { price: 175, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 restock." },
+      },
+      construction: {
+        first: { price: 160, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly restock included (4 visits)." },
+        extra: { price: 140, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days. Weekly restock included." },
+      },
+    },
+    {
+      id: "vip-2",
+      name: "VIP Trailer (2-stall)",
+      blurb: "Two private stalls",
+      image: "img/vip-2-stall-restroom-trailer.webp",
+      imageAlt: "Two-stall restroom trailer on a wheeled chassis",
+      disc: 0,
+      events: {
+        day: { price: 1200, /* PLACEHOLDER */ bill: "per day", includes: "1-day trailer rental. Add delivery as its own line." },
+        weekend: { price: 2600, /* PLACEHOLDER */ bill: "weekend (Fri–Sun)", includes: "Friday through Sunday. Includes 1 service." },
+      },
+      construction: {
+        first: { price: 2200, /* PLACEHOLDER */ bill: "first 28 days", includes: "Weekly service included (4 visits)." },
+        extra: { price: 1900, /* PLACEHOLDER */ bill: "each added 28 days", includes: "Another 28 days. Weekly service included." },
+      },
+    },
+  ],
+  addons: [
+    {
+      id: "service",
+      name: "Extra Service / Pump-Out",
+      blurb: "One extra pump-out and restock",
+      disc: 0,
+      price: 95, /* PLACEHOLDER — same price for events and construction */
+      bill: "each visit",
+      includes: "One extra pump-out and restock.",
+    },
+    {
+      id: "delivery",
+      name: "Delivery & Pickup",
+      blurb: "One drop-off and the final pickup",
+      disc: 0,
+      price: 150, /* PLACEHOLDER — same price for events and construction */
+      bill: "per drop",
+      includes: "One delivery and the final pickup.",
+    },
+  ],
+};
+
+// =====================================================
+// ESTIMATE NUMBER — TGD-PR-YYYYMMDD-XXXX
+// PR = portable restroom, so it is not read as a dumpster estimate (TGD-).
+// =====================================================
+function generateEstimateNumber() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = String(Math.floor(1000 + Math.random() * 9000));
+  return "TGD-PR-" + y + m + d + "-" + rand;
+}
+
+function liveUrl(url) {
+  return String(url || "").trim();
+}
+
+function serviceFrequency(unitId, variant) {
+  if (unitId === "service") return "Per visit";
+  if (unitId === "delivery") return "Per drop";
+  if (unitId === "handwash") {
+    if (variant === "day") return "None included";
+    if (variant === "weekend") return "1 restock";
+    return "Weekly restock";
+  }
+  if (variant === "day") return "None included";
+  if (variant === "weekend") return "1 service";
+  return "Weekly";
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) return "";
+  return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function catalogLines(mode) {
+  const lines = [];
+  RESTROOM_PRICES.units.forEach(unit => {
+    const block = unit[mode];
+    if (!block) return;
+    const variants = mode === "events" ? ["day", "weekend"] : ["first", "extra"];
+    variants.forEach(variant => {
+      const spec = block[variant];
+      if (!spec || spec.price == null) return;
+      lines.push({
+        key: unit.id + ":" + variant,
+        unitId: unit.id,
+        variant: variant,
+        kind: "unit",
+        name: unit.name,
+        image: unit.image,
+        price: spec.price,
+        bill: spec.bill,
+        rentalPeriod: spec.bill,
+        serviceFrequency: serviceFrequency(unit.id, variant),
+        includes: spec.includes,
+        disc: unit.disc || 0,
+      });
+    });
+  });
+  RESTROOM_PRICES.addons.forEach(addon => {
+    if (addon.price == null) return;
+    lines.push({
+      key: addon.id,
+      unitId: addon.id,
+      variant: "addon",
+      kind: "addon",
+      name: addon.name,
+      image: "",
+      price: addon.price,
+      bill: addon.bill,
+      rentalPeriod: addon.bill,
+      serviceFrequency: serviceFrequency(addon.id, "addon"),
+      includes: addon.includes,
+      disc: addon.disc || 0,
+    });
+  });
+  return lines;
+}
+
+function primaryKey(mode, unitId) {
+  return unitId + ":" + (mode === "events" ? "day" : "first");
+}
+
+function makeState(line, qty, discount) {
+  const maxDisc = line.disc || 0;
+  const discAmt = Math.min(maxDisc, Math.max(0, discount || 0));
+  const q = Math.min(10, Math.max(1, qty || 1));
+  return {
+    basePrice: line.price,
+    discount: discAmt,
+    maxDisc: maxDisc,
+    finalPrice: line.price - discAmt,
+    qty: q,
+    name: line.name,
+    bill: line.bill,
+    rentalPeriod: line.rentalPeriod,
+    serviceFrequency: line.serviceFrequency,
+    includes: line.includes,
+    kind: line.kind,
+    image: line.image,
+  };
+}
+
+function mergeLines(mode, unitIds, prev) {
+  const catalog = catalogLines(mode);
+  const byKey = {};
+  catalog.forEach(line => { byKey[line.key] = line; });
+  const idSet = {};
+  unitIds.forEach(id => { idSet[id] = true; });
+  const next = {};
+  Object.keys(prev || {}).forEach(key => {
+    const line = byKey[key];
+    if (!line || !prev[key]) return;
+    if (line.kind === "addon" || idSet[line.unitId]) {
+      next[key] = makeState(line, prev[key].qty, prev[key].discount);
+    }
+  });
+  unitIds.forEach(id => {
+    const key = primaryKey(mode, id);
+    if (!next[key] && byKey[key]) next[key] = makeState(byKey[key], 1, 0);
+  });
+  return next;
+}
+
+function rebaseLines(prevMode, nextMode, prev, picked) {
+  const oldCatalog = catalogLines(prevMode);
+  const oldByKey = {};
+  oldCatalog.forEach(line => { oldByKey[line.key] = line; });
+  const qtyByUnit = {};
+  Object.keys(prev || {}).forEach(key => {
+    const line = oldByKey[key];
+    if (!line || line.kind !== "unit" || !prev[key]) return;
+    const isPrimary = line.variant === (prevMode === "events" ? "day" : "first");
+    if (isPrimary || qtyByUnit[line.unitId] == null) qtyByUnit[line.unitId] = prev[key].qty;
+  });
+  const catalog = catalogLines(nextMode);
+  const byKey = {};
+  catalog.forEach(line => { byKey[line.key] = line; });
+  const next = {};
+  Object.keys(picked).filter(id => picked[id]).forEach(id => {
+    const key = primaryKey(nextMode, id);
+    if (byKey[key]) next[key] = makeState(byKey[key], qtyByUnit[id] || 1, 0);
+  });
+  Object.keys(prev || {}).forEach(key => {
+    const line = byKey[key];
+    if (line && line.kind === "addon" && prev[key]) next[key] = makeState(line, prev[key].qty, prev[key].discount);
+  });
+  return next;
+}
+
+function discOptions(max) {
+  const opts = [0];
+  const cap = Math.floor((max || 0) / 5) * 5;
+  for (let v = 5; v <= cap; v += 5) opts.push(v);
+  return opts;
+}
+
+const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#0d180d", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" };
+const labelStyle = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#4a6b4a", marginBottom: 5, display: "block" };
+
+function SampleBanner() {
+  if (!RESTROOM_PRICES.samplePrices) return null;
+  return (
+    <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 0 18px", padding: "12px 16px", borderRadius: 12, background: "#f59e0b", color: "#1a1203", fontWeight: 800, fontSize: 14, letterSpacing: 0.2, textAlign: "center", boxShadow: "0 8px 24px rgba(245,158,11,0.25)" }}>
+      SAMPLE PRICES - not final. Do not quote these numbers to a customer until the price list is confirmed.
+    </div>
+  );
+}
+
+function AppShell({ children }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#0a0f0a 0%,#0d1a0d 40%,#111b11 100%)", fontFamily: "'Segoe UI',-apple-system,sans-serif", color: "#e8efe8" }}>
+      <div style={{ position: "fixed", inset: 0, opacity: 0.03, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#4ade80 39px,#4ade80 40px)" }} />
+      <div style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🚻</div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2.4, textTransform: "uppercase", color: "#4ade80" }}>The Green Dumpster</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: -0.3 }}>Portable Restroom Quote</div>
+            </div>
+          </div>
+          <a href="../index.html" style={{ fontSize: 12, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "8px 12px", borderRadius: 10, border: "1px solid #2d4a2d", background: "#121e12" }}>Dumpster pricing</a>
+        </div>
+        <SampleBanner />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function UnitPicker({ picked, onToggle, onContinue }) {
+  const selected = RESTROOM_PRICES.units.filter(unit => picked[unit.id]);
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80", marginBottom: 8 }}>Step 1 of 2</div>
+      <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 8 }}>Which unit do you need?</h1>
+      <p style={{ fontSize: 14, color: "#86a086", lineHeight: 1.5, marginBottom: 18, maxWidth: 640 }}>
+        Click a unit to select it. Pick more than one if the job needs them. Quantity, Events or Construction pricing, and the job address come next. The price is the same for every address.
+      </p>
+      <div className="unit-grid" role="group" aria-label="Units">
+        {RESTROOM_PRICES.units.map(unit => {
+          const on = !!picked[unit.id];
+          return (
+            <button
+              key={unit.id}
+              type="button"
+              onClick={() => onToggle(unit.id)}
+              aria-pressed={on}
+              style={{
+                textAlign: "left", cursor: "pointer", borderRadius: 8, overflow: "hidden",
+                background: on ? "#f0fdf4" : "#fff",
+                border: on ? "2px solid #16a34a" : "2px solid #e6ecea",
+                boxShadow: on ? "inset 0 0 0 1px #16a34a" : "none",
+                color: "#101d1f", padding: 0, position: "relative",
+              }}
+            >
+              <div style={{ height: 168, background: "#f4f8f7", display: "flex", alignItems: "center", justifyContent: "center", padding: 10 }}>
+                <img src={unit.image} alt={unit.imageAlt} style={{ maxWidth: "100%", maxHeight: 148, objectFit: "contain" }} />
+              </div>
+              <div style={{ padding: "12px 12px 14px" }}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{unit.name}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: on ? "#0a6d69" : "#5c6b6d", marginTop: 3 }}>{unit.blurb}</div>
+              </div>
+              {on && (
+                <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true">✓</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={onContinue}
+        disabled={selected.length === 0}
+        style={{
+          width: "100%", marginTop: 16, padding: "14px 0", borderRadius: 12, border: "none",
+          cursor: selected.length ? "pointer" : "not-allowed",
+          background: selected.length ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d",
+          color: selected.length ? "#1a1203" : "#666",
+          fontSize: 16, fontWeight: 800, letterSpacing: 0.2,
+          boxShadow: selected.length ? "0 4px 20px rgba(245,158,11,0.25)" : "none",
+        }}
+      >
+        {selected.length === 0 ? "Select a unit to continue" : "Continue to quote details · " + selected.length + (selected.length === 1 ? " unit" : " units")}
+      </button>
+      <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#4a6b4a" }}>
+        {RESTROOM_PRICES.units.length} units · delivery and extra service are added on the quote
+      </div>
+    </div>
+  );
+}
+
+function QuoteDetails({ mode, picked, lines, onMode, onBack, onToggleLine, onQty, onDiscount, draft, setDraft, onStartOver }) {
+  const catalog = catalogLines(mode);
+  const ordered = catalog.filter(line => lines[line.key]);
+  const total = ordered.reduce((sum, line) => sum + lines[line.key].finalPrice * lines[line.key].qty, 0);
+  const totalQty = ordered.reduce((sum, line) => sum + lines[line.key].qty, 0);
+  const anyDisc = catalog.some(line => line.disc > 0);
+  const estimateRef = useRef("");
+  const [estimateNum, setEstimateNum] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [posted, setPosted] = useState(false);
+  const [error, setError] = useState("");
+
+  const ghlUrl = liveUrl(RESTROOM_WEBHOOK_URL);
+  const sheetUrl = liveUrl(GOOGLE_SHEET_URL);
+  const missing = !draft.csrName ? "Select your name" : !draft.custName ? "Enter the customer name" : !draft.custPhone ? "Enter a phone number" : !draft.address.trim() ? "Enter the job address" : ordered.length === 0 ? "Select at least one line" : "";
+  const canSend = !missing;
+
+  function ensureEstimate() {
+    if (!estimateRef.current) {
+      estimateRef.current = generateEstimateNumber();
+      setEstimateNum(estimateRef.current);
+    }
+    return estimateRef.current;
+  }
+
+  function useCase() { return mode === "events" ? "Event" : "Construction"; }
+
+  // Same shape as the dumpster quote text. 🚻 stands in for the dumpster's 🟢.
+  function summaryParts() {
+    const linesOut = [];
+    if (RESTROOM_PRICES.samplePrices) {
+      linesOut.push("⚠️ SAMPLE PRICES - not final");
+      linesOut.push("");
+    }
+    ordered.forEach((line, idx) => {
+      const info = lines[line.key];
+      const lineTotal = info.finalPrice * info.qty;
+      if (idx > 0) linesOut.push("");
+      linesOut.push("🚻 " + line.name + " (x" + info.qty + ")");
+      linesOut.push("💰 " + fmt(info.finalPrice) + "/ea" + (info.discount > 0 ? " (saved $" + info.discount + ")" : "") + " = " + fmt(lineTotal));
+      linesOut.push("📅 " + info.rentalPeriod);
+    });
+    linesOut.push("");
+    linesOut.push("💲 Total: " + totalQty + " item" + (totalQty === 1 ? "" : "s") + " — " + fmt(total));
+    return linesOut;
+  }
+
+  function summaryHtml() {
+    const rows = [];
+    ordered.forEach(line => {
+      const info = lines[line.key];
+      const lineTotal = info.finalPrice * info.qty;
+      let priceCell = "<span style='white-space:nowrap;'>" + fmt(info.finalPrice) + "</span>";
+      if (info.discount > 0) {
+        priceCell = "<s style='color:#8aaa8a;white-space:nowrap;'>" + fmt(info.basePrice) + "</s><br><span style='white-space:nowrap;'>" + fmt(info.finalPrice) + "</span> <span style='color:#2ECC40;font-size:11px;white-space:nowrap;'>(saved $" + info.discount + ")</span>";
+      }
+      rows.push("<tr><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;'>" + line.name + "</td><td style='padding:8px 6px;border-bottom:1px solid #2a4a2a;text-align:center;color:#ffffff;font-size:14px;width:30px;'>" + info.qty + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;color:#ffffff;font-size:13px;'>" + priceCell + "</td><td style='padding:8px 10px;border-bottom:1px solid #2a4a2a;text-align:right;font-weight:700;color:#2ECC40;font-size:14px;white-space:nowrap;'>" + fmt(lineTotal) + "</td></tr>");
+      rows.push("<tr><td colspan='4' style='padding:4px 10px 10px;border-bottom:1px solid #2a4a2a;font-size:11px;color:#8aaa8a;'>&#128197; " + info.rentalPeriod + " &bull; &#128260; " + info.serviceFrequency + "</td></tr>");
+    });
+    const banner = RESTROOM_PRICES.samplePrices ? "<p style='margin:0 0 8px;font-weight:800;color:#1a1203;background:#f59e0b;padding:8px 10px;border-radius:8px;'>SAMPLE PRICES - not final</p>" : "";
+    return banner + "<table style='width:100%;border-collapse:collapse;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#1a3a1a;border-radius:14px;'><thead><tr style='background:#2a4a2a;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Unit</th><th style='padding:8px 6px;text-align:center;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;width:30px;'>Qty</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Price</th><th style='padding:8px 10px;text-align:right;border-bottom:2px solid #3a5a3a;color:#2ECC40;font-size:11px;text-transform:uppercase;white-space:nowrap;'>Total</th></tr></thead><tbody>" + rows.join("") + "<tr style='background:#2ECC40;'><td colspan='3' style='padding:12px 10px;font-weight:800;font-size:14px;color:#ffffff;white-space:nowrap;'>Total (" + totalQty + " item" + (totalQty === 1 ? "" : "s") + ")</td><td style='padding:12px 10px;text-align:right;font-weight:800;font-size:16px;color:#ffffff;white-space:nowrap;'>" + fmt(total) + "</td></tr></tbody></table>";
+  }
+
+  async function copyQuote() {
+    if (!ordered.length) return;
+    setCopyError("");
+    ensureEstimate();
+    const text = summaryParts().join("\n");
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
+      document.body.removeChild(ta);
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } else {
+      setCopyError("Clipboard blocked. Select the quote preview and copy it manually.");
+      setCopied(false);
+    }
+  }
+
+  function buildPayload(estNum) {
+    const flat = {};
+    ordered.forEach((line, i) => {
+      const info = lines[line.key];
+      const n = i + 1;
+      flat["unit_" + n + "_name"] = line.name;
+      flat["unit_" + n + "_qty"] = info.qty;
+      flat["unit_" + n + "_price_each"] = info.finalPrice.toFixed(2);
+      flat["unit_" + n + "_line_total"] = (info.finalPrice * info.qty).toFixed(2);
+      flat["unit_" + n + "_service_frequency"] = info.serviceFrequency;
+      flat["unit_" + n + "_rental_period"] = info.rentalPeriod;
+    });
+    return {
+      estimate_number: estNum,
+      csr_name: draft.csrName,
+      csr_email: CSR_EMAILS[draft.csrName] || "office@thegreendumpster.com",
+      customer_name: draft.custName,
+      customer_phone: draft.custPhone,
+      customer_email: draft.custEmail,
+      job_address: draft.address.trim(),
+      service_type: "Portable Restroom",
+      use_case: useCase(),
+      event_date: draft.eventDate,
+      delivery_date: draft.deliveryDate,
+      unit_count: ordered.length,
+      ...flat,
+      quote_summary: summaryParts().join("\n"),
+      quote_summary_html: summaryHtml(),
+      total_quote: total.toFixed(2),
+      company_name: COMPANY_NAME,
+      company_phone: COMPANY_PHONE,
+      company_email: COMPANY_EMAIL,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async function handleSend() {
+    if (!canSend || !ghlUrl) return;
+    setSending(true);
+    setError("");
+    const estNum = ensureEstimate();
+    const payload = buildPayload(estNum);
+    try {
+      await fetch(ghlUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (sheetUrl) {
+        fetch(sheetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          mode: "no-cors",
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      }
+      setPosted(true);
+      setSent(true);
+    } catch (err) {
+      setError("Failed to send. Check webhook URL.");
+    }
+    setSending(false);
+  }
+
+  if (sent) {
+    return (
+      <div style={{ marginTop: 8, padding: 32, borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #22c55e", textAlign: "center", animation: "fadeSlide 0.35s ease" }}>
+        <div style={{ fontSize: 48, marginBottom: 12, animation: "successPulse 0.5s ease" }}>✅</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#4ade80", marginBottom: 8 }}>Quote Sent!</div>
+        <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 8, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: "#6b8f6b" }}>Estimate # </span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#fff", fontFamily: "monospace", letterSpacing: 1 }}>{estimateNum}</span>
+        </div>
+        <div style={{ fontSize: 13, color: "#86a086", marginBottom: 4 }}>{posted ? "Sent to " + draft.custName + " via Email & SMS" : "Quote is ready for " + draft.custName + ". The restroom webhook is not connected, so no email or SMS went out."}</div>
+        <div style={{ fontSize: 12, color: "#4a6b4a", marginBottom: 20 }}>{totalQty} item(s) • {fmt(total)} total • {useCase()} • CSR: {draft.csrName}</div>
+        <button type="button" onClick={onStartOver} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>New Quote</button>
+      </div>
+    );
+  }
+
+  const modeBlurb = mode === "events"
+    ? "Events are priced per day or for a Friday–Sunday weekend. Service and delivery are their own lines."
+    : "Construction is priced per 28-day cycle. The first cycle includes weekly service. An added cycle is a separate line.";
+  const preview = ordered.length ? summaryParts().join("\n") : "";
+
+  return (
+    <div style={{ animation: "fadeSlide 0.35s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#86efac", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Units</button>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#4ade80" }}>Step 2 of 2</div>
+      </div>
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: -0.4, marginBottom: 6 }}>Quote details</h1>
+      <p style={{ fontSize: 13, color: "#6b8f6b", marginBottom: 14 }}>Job address is free text. Nothing on this page looks up a zip code.</p>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#121e12", borderRadius: 12, padding: 4 }}>
+        {[["events", "Events"], ["construction", "Construction"]].map(([id, label]) => (
+          <button key={id} type="button" onClick={() => onMode(id)} style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", background: mode === id ? "linear-gradient(135deg,#22c55e,#16a34a)" : "transparent", color: mode === id ? "#fff" : "#4a6b4a" }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ fontSize: 13, color: "#86a086", marginBottom: 16, lineHeight: 1.45 }}>{modeBlurb}</div>
+
+      <div style={{ borderRadius: 16, background: "linear-gradient(135deg,#1a2e1a,#162016)", border: "1px solid #2d4a2d", padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📝</div>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Build Quote</span>
+        </div>
+
+        <div className="q-3" style={{ marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>CSR Name</label>
+            <select value={draft.csrName} onChange={e => setDraft({ csrName: e.target.value })} style={{ ...inputStyle, cursor: "pointer" }}>
+              <option value="">Select CSR...</option>
+              {CSR_NAMES.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Customer Name</label>
+            <input value={draft.custName} onChange={e => setDraft({ custName: e.target.value })} placeholder="Jane Roe" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Phone</label>
+            <input value={draft.custPhone} onChange={e => setDraft({ custPhone: e.target.value })} placeholder="(818) 555-1234" type="tel" style={inputStyle} />
+          </div>
+        </div>
+        <div className="q-2" style={{ marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Email</label>
+            <input value={draft.custEmail} onChange={e => setDraft({ custEmail: e.target.value })} placeholder="jane@email.com" type="email" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Event date</label>
+            <input value={draft.eventDate} onChange={e => setDraft({ eventDate: e.target.value })} type="date" style={inputStyle} />
+          </div>
+        </div>
+        <div className="q-2" style={{ marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Delivery date</label>
+            <input value={draft.deliveryDate} onChange={e => setDraft({ deliveryDate: e.target.value })} type="date" style={inputStyle} />
+          </div>
+          <div />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Job address</label>
+          <input value={draft.address} onChange={e => setDraft({ address: e.target.value })} placeholder="100 Main St, Los Angeles" style={inputStyle} />
+          <div style={{ fontSize: 11, color: "#4a6b4a", marginTop: 5 }}>Street address for the order. Price does not change by city.</div>
+        </div>
+
+        <label style={{ ...labelStyle, marginBottom: 10 }}>Line items</label>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Units</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {catalog.filter(line => line.kind === "unit").map(line => {
+            const on = !!lines[line.key];
+            return (
+              <button key={line.key} type="button" onClick={() => onToggleLine(line.key)} style={{ padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: on ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: on ? "2px solid #4ade80" : "1px solid #2d4a2d", color: on ? "#fff" : "#86a086" }}>
+                {line.name} · {line.bill} · {fmt(line.price)}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#6b8f6b", marginBottom: 6 }}>Add-ons</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+          {catalog.filter(line => line.kind === "addon").map(line => {
+            const on = !!lines[line.key];
+            return (
+              <button key={line.key} type="button" onClick={() => onToggleLine(line.key)} style={{ padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700, background: on ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#0d180d", border: on ? "2px solid #4ade80" : "1px solid #2d4a2d", color: on ? "#fff" : "#86a086" }}>
+                {line.name} · {fmt(line.price)}
+              </button>
+            );
+          })}
+        </div>
+
+        {ordered.map(line => {
+          const info = lines[line.key];
+          return (
+            <div key={line.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, borderRadius: 10, background: "#0d180d", border: "1px solid #1e2e1e" }}>
+              {info.image ? <img src={info.image} alt="" style={{ width: 42, height: 42, objectFit: "contain", background: "#f4f8f7", borderRadius: 6 }} /> : <div style={{ width: 42, height: 42, borderRadius: 6, background: "#163016" }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#d1e7d1" }}>{line.name}</div>
+                <div style={{ fontSize: 11, color: "#4a6b4a" }}>{line.bill} · {line.includes}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, color: "#6b8f6b" }}>Qty</span>
+                <button type="button" onClick={() => onQty(line.key, info.qty - 1)} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>−</button>
+                <span style={{ minWidth: 20, textAlign: "center", fontSize: 14, fontWeight: 800, color: info.qty > 1 ? "#f59e0b" : "#d1e7d1" }}>{info.qty}</span>
+                <button type="button" onClick={() => onQty(line.key, info.qty + 1)} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: "#6b8f6b", fontWeight: 700, cursor: "pointer" }}>+</button>
+              </div>
+              {info.maxDisc > 0 && (
+                <select value={info.discount} onChange={e => onDiscount(line.key, e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #2d4a2d", background: "#121e12", color: info.discount > 0 ? "#f59e0b" : "#6b8f6b", fontSize: 12, fontWeight: 700 }}>
+                  {discOptions(info.maxDisc).map(v => <option key={v} value={v}>{v === 0 ? "$0" : "−$" + v}</option>)}
+                </select>
+              )}
+              <div style={{ textAlign: "right", minWidth: 88 }}>
+                <div style={{ fontSize: 13, color: "#86a086" }}>{fmt(info.finalPrice)} ea</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80" }}>{fmt(info.finalPrice * info.qty)}</div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", marginTop: 8, borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#86a086" }}>Quote total ({totalQty} {totalQty === 1 ? "item" : "items"})</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", fontFamily: "monospace" }}>{fmt(total)}</span>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <label style={labelStyle}>Notes for the quote</label>
+          <textarea value={draft.notes} onChange={e => setDraft({ notes: e.target.value })} rows={2} placeholder="Gate code, placement, guest count" style={{ ...inputStyle, resize: "vertical" }} />
+        </div>
+
+        {estimateNum && (
+          <div style={{ marginTop: 12, fontSize: 12, color: "#86efac" }}>Estimate # <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#fff" }}>{estimateNum}</span></div>
+        )}
+        {(error || copyError) && (
+          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5", fontSize: 12, fontWeight: 600 }}>{error || copyError}</div>
+        )}
+
+        <button type="button" onClick={handleSend} disabled={!canSend || !ghlUrl || sending} style={{ width: "100%", marginTop: 14, padding: "14px 0", borderRadius: 12, border: "none", cursor: canSend && ghlUrl && !sending ? "pointer" : "not-allowed", background: canSend && ghlUrl && !sending ? "linear-gradient(135deg,#f59e0b,#d97706)" : "#2d2d2d", color: canSend && ghlUrl ? "#fff" : "#666", fontSize: 15, fontWeight: 800, letterSpacing: 0.5, boxShadow: canSend && ghlUrl ? "0 4px 20px rgba(245,158,11,0.2)" : "none" }}>
+          {sending ? "Sending..." : (draft.custEmail ? "📧 Send Quote via Email & SMS" : "📧 Send Quote via SMS")}
+        </button>
+        <button type="button" onClick={copyQuote} disabled={!ordered.length} style={{ width: "100%", marginTop: 8, padding: "10px 0", borderRadius: 12, cursor: ordered.length ? "pointer" : "not-allowed", background: "#121e12", border: "1px solid #2d4a2d", color: ordered.length ? "#4ade80" : "#666", fontSize: 13, fontWeight: 700 }}>
+          {copied ? "Copied" : "Copy quote"}
+        </button>
+        {!ghlUrl && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#fde68a" }}>GHL not connected yet</div>}
+        {!canSend && !sending && <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "#4a6b4a" }}>{missing}</div>}
+
+        {preview && (
+          <details style={{ marginTop: 14 }}>
+            <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#86a086" }}>Quote text</summary>
+            <pre style={{ marginTop: 8, whiteSpace: "pre-wrap", fontSize: 12, lineHeight: 1.45, color: "#d1e7d1", background: "#0d180d", border: "1px solid #1e2e1e", borderRadius: 10, padding: 12 }}>{preview}</pre>
+          </details>
+        )}
+      </div>
+
+      <div style={{ marginTop: 18, borderRadius: 16, overflow: "hidden", border: "1px solid #2d4a2d" }}>
+        <div style={{ padding: "12px 16px", background: "linear-gradient(135deg,#1a2e1a,#162016)", fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#6b8f6b" }}>
+          {mode === "events" ? "Events" : "Construction"} price list
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table className="price-table">
+            <thead>
+              <tr style={{ background: "#121e12" }}>
+                {["Item", "Price", "Billed as", "Included"].map(h => (
+                  <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b8f6b", borderBottom: "2px solid #2d4a2d" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {catalog.map((line, i) => (
+                <tr key={line.key} style={{ background: i % 2 === 0 ? "rgba(26,46,26,0.5)" : "rgba(22,32,22,0.5)" }}>
+                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#d1e7d1" }}>{line.name}{line.kind === "addon" ? " · add-on" : ""}</td>
+                  <td style={{ padding: "10px 12px", fontWeight: 800, color: "#4ade80" }}>{fmt(line.price)}</td>
+                  <td style={{ padding: "10px 12px", color: "#a7c4a7" }}>{line.bill}</td>
+                  <td style={{ padding: "10px 12px", color: "#86a086", fontSize: 12 }}>{line.includes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: anyDisc ? "rgba(34,197,94,0.06)" : "rgba(250,204,21,0.06)", border: anyDisc ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(250,204,21,0.18)" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: anyDisc ? "#4ade80" : "#fde68a", marginBottom: 4 }}>{anyDisc ? "Discounts available" : "No discounts on this price list"}</div>
+        <div style={{ fontSize: 12, color: "#b0a060", lineHeight: 1.45 }}>
+          {anyDisc
+            ? "Discounts step by $5, up to the disc on each item. Offer one only if the customer is hesitant. Do not lead with it."
+            : "Every disc is 0. Anything off the listed price → check with the manager. Set disc to a multiple of 5 in RESTROOM_PRICES when a discount is allowed."}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "rgba(26,46,26,0.45)", border: "1px solid #1e2e1e", fontSize: 12, color: "#86a086", lineHeight: 1.5 }}>
+        <strong style={{ color: "#d1e7d1" }}>CSR note — leave this off the customer quote. </strong>
+        {RESTROOM_PRICES.brokerNote}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 18, fontSize: 12, color: "#4a6b4a" }}>
+        <span>Picked on step 1: {Object.keys(picked).filter(id => picked[id]).length}</span>
+        <button type="button" onClick={onStartOver} style={{ background: "none", border: "none", color: "#6b8f6b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Start over</button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState("pick");
+  const [mode, setMode] = useState("events");
+  const [picked, setPicked] = useState({});
+  const [lines, setLines] = useState({});
+  const [draft, setDraftState] = useState({
+    csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "",
+  });
+
+  function setDraft(patch) { setDraftState(prev => ({ ...prev, ...patch })); }
+
+  function togglePick(id) {
+    setPicked(prev => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function continueToQuote() {
+    const ids = Object.keys(picked).filter(id => picked[id]);
+    if (!ids.length) return;
+    setLines(prev => mergeLines(mode, ids, prev));
+    setScreen("quote");
+    window.scrollTo(0, 0);
+  }
+
+  function changeMode(nextMode) {
+    if (nextMode === mode) return;
+    setLines(prev => rebaseLines(mode, nextMode, prev, picked));
+    setMode(nextMode);
+  }
+
+  function toggleLine(key) {
+    const catalog = catalogLines(mode);
+    const line = catalog.find(item => item.key === key);
+    if (!line) return;
+    const next = { ...lines };
+    if (next[key]) delete next[key];
+    else next[key] = makeState(line, 1, 0);
+    setLines(next);
+    if (line.kind === "unit") {
+      const still = {};
+      catalog.forEach(item => {
+        if (item.kind === "unit" && next[item.key]) still[item.unitId] = true;
+      });
+      setPicked(still);
+    }
+  }
+
+  function setQty(key, qty) {
+    const num = Math.min(10, Math.max(1, parseInt(qty, 10) || 1));
+    setLines(prev => prev[key] ? { ...prev, [key]: { ...prev[key], qty: num } } : prev);
+  }
+
+  function setDiscount(key, val) {
+    setLines(prev => {
+      const row = prev[key];
+      if (!row) return prev;
+      const num = Math.min(row.maxDisc, Math.max(0, parseInt(val, 10) || 0));
+      return { ...prev, [key]: { ...row, discount: num, finalPrice: row.basePrice - num } };
+    });
+  }
+
+  function startOver() {
+    setScreen("pick");
+    setMode("events");
+    setPicked({});
+    setLines({});
+    setDraftState({ csrName: "", custName: "", custPhone: "", custEmail: "", address: "", eventDate: "", deliveryDate: "", notes: "" });
+    window.scrollTo(0, 0);
+  }
+
+  return (
+    <AppShell>
+      {screen === "pick" ? (
+        <UnitPicker picked={picked} onToggle={togglePick} onContinue={continueToQuote} />
+      ) : (
+        <QuoteDetails
+          mode={mode}
+          picked={picked}
+          lines={lines}
+          onMode={changeMode}
+          onBack={() => { setScreen("pick"); window.scrollTo(0, 0); }}
+          onToggleLine={toggleLine}
+          onQty={setQty}
+          onDiscount={setDiscount}
+          draft={draft}
+          setDraft={setDraft}
+          onStartOver={startOver}
+        />
+      )}
+    </AppShell>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

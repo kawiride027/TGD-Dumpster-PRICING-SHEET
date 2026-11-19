@@ -40,10 +40,12 @@ const { useState, useRef } = React;
 
 // =====================================================
 // CONFIG — restroom CSR list. Evelyn is not on this list.
-// The dumpster app's CSR list is edited separately. Keep these two arrays in sync with each other.
+// The dumpster app's CSR list is edited separately. Keep CSR_NAMES, CSR_EMAILS, and CSR_SLACK_IDS in sync with each other.
 // =====================================================
 const CSR_NAMES = ["Tais","Emely","Kevin","CJ","Luis","Felix","Yuly","Dory","John P.","Dustin","Clint"];
 const CSR_EMAILS = {"Tais":"tais@thegreendumpster.com","Emely":"emily@thegreendumpster.com","Kevin":"kevin@thegreendumpster.com","CJ":"carlos@thegreendumpster.com","Luis":"luis@thegreendumpster.com","Felix":"felix@thegreendumpster.com","Yuly":"yuly@thegreendumpster.com","Dory":"dorielys@thegreendumpster.com","John P.":"john@thegreendumpster.com","Dustin":"dustin@thegreendumpster.com","Clint":"clint@thegreendumpster.com"};
+// Must stay in sync with CSR_NAMES.
+const CSR_SLACK_IDS = {"Tais":"U08NSU181QW","Emely":"U08DY40PBNY","Kevin":"U070W3DP8EN","CJ":"U091TRHBY95","Luis":"U088N74LQTG","Felix":"U07SW3YNWHW","Yuly":"U07T8U8J77W","Dory":"U07SRSVP65D","John P.":"U0B09RRCP6H","Dustin":"U06GH39B8JU","Clint":"U0716GM4UH1"};
 const COMPANY_NAME = "The Green Dumpster/All Site Rentals";
 const COMPANY_PHONE = "(818) 960-1941";
 const COMPANY_PHONE_TEL = "tel:+18189601941";
@@ -976,6 +978,17 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       estimate_number: estNum,
       csr_name: draft.csrName,
       csr_email: quoteEmail,
+      csr_slack_id: CSR_SLACK_IDS[draft.csrName] || "",
+      csr_slack_mention: CSR_SLACK_IDS[draft.csrName] ? "<@" + CSR_SLACK_IDS[draft.csrName] + ">" : (draft.csrName || ""),
+      slack_quote_block: slackQuoteBlock({
+        service_title: serviceTitle(),
+        use_case: useCase(),
+        total_display: smsMoney(total),
+        recurring_display: constructionMode && sheet.recurring > 0 ? smsMoney(sheet.recurring) : "",
+        date_display: smsPrimaryDate(),
+        job_address: draft.address.trim(),
+        estimate_number: estNum,
+      }),
       customer_name: draft.custName,
       customer_phone: draft.custPhone,
       customer_email: draft.custEmail,
@@ -1018,6 +1031,31 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     if (hasPole && hasRestroom) return "Portable Restroom & Temp Power Pole";
     if (hasPole) return "Temp Power Pole";
     return "Portable Restroom";
+  }
+
+  function slackQuoteEmoji() {
+    if (!constructionMode) return "🚽";
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    if (hasPole && hasRestroom) return "🚽⚡";
+    if (hasPole) return "⚡";
+    return "🚽";
+  }
+
+  function slackQuoteBlock(fields) {
+    const lines = [];
+    const title = fields.service_title || "";
+    const use = fields.use_case || "";
+    if (title || use) lines.push(slackQuoteEmoji() + " " + title + " · " + use);
+    if (fields.total_display) {
+      let money = "💰 " + fields.total_display;
+      if (constructionMode && fields.recurring_display) money += " (then " + fields.recurring_display + "/28 days)";
+      lines.push(money);
+    }
+    if (fields.date_display) lines.push("📅 " + fields.date_display);
+    if (fields.job_address) lines.push("📍 " + fields.job_address);
+    if (fields.estimate_number) lines.push("🧾 Est #" + fields.estimate_number);
+    return lines.join("\n");
   }
 
   function serviceTitle() {

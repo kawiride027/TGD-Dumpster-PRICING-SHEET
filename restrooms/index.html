@@ -980,6 +980,15 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
       csr_email: quoteEmail,
       csr_slack_id: CSR_SLACK_IDS[draft.csrName] || "",
       csr_slack_mention: CSR_SLACK_IDS[draft.csrName] ? "<@" + CSR_SLACK_IDS[draft.csrName] + ">" : (draft.csrName || ""),
+      slack_quote_block: slackQuoteBlock({
+        service_title: serviceTitle(),
+        use_case: useCase(),
+        total_display: smsMoney(total),
+        recurring_display: constructionMode && sheet.recurring > 0 ? smsMoney(sheet.recurring) : "",
+        date_display: smsPrimaryDate(),
+        job_address: draft.address.trim(),
+        estimate_number: estNum,
+      }),
       customer_name: draft.custName,
       customer_phone: draft.custPhone,
       customer_email: draft.custEmail,
@@ -1022,6 +1031,31 @@ function QuoteDetails({ mode, picked, lines, opts, onOpt, serviceDays, onService
     if (hasPole && hasRestroom) return "Portable Restroom & Temp Power Pole";
     if (hasPole) return "Temp Power Pole";
     return "Portable Restroom";
+  }
+
+  function slackQuoteEmoji() {
+    if (!constructionMode) return "🚽";
+    const hasPole = sheet.blocks.some(block => block.pole);
+    const hasRestroom = sheet.blocks.some(block => !block.pole);
+    if (hasPole && hasRestroom) return "🚽⚡";
+    if (hasPole) return "⚡";
+    return "🚽";
+  }
+
+  function slackQuoteBlock(fields) {
+    const lines = [];
+    const title = fields.service_title || "";
+    const use = fields.use_case || "";
+    if (title || use) lines.push(slackQuoteEmoji() + " " + title + " · " + use);
+    if (fields.total_display) {
+      let money = "💰 " + fields.total_display;
+      if (constructionMode && fields.recurring_display) money += " (then " + fields.recurring_display + "/28 days)";
+      lines.push(money);
+    }
+    if (fields.date_display) lines.push("📅 " + fields.date_display);
+    if (fields.job_address) lines.push("📍 " + fields.job_address);
+    if (fields.estimate_number) lines.push("🧾 Est #" + fields.estimate_number);
+    return lines.join("\n");
   }
 
   function serviceTitle() {

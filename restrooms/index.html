@@ -192,11 +192,8 @@ const RESTROOM_PRICES = {
       blurb: "Sink inside the unit",
       image: "img/deluxe-restroom-with-sink.webp",
       imageAlt: "Teal deluxe portable restroom with an interior sink",
-      // Dustin 11/23/2026. Same rate as Deluxe Flushable.
-      // Global cost $315 first 28 days and $260 each added period, at a 26% margin (cost / 0.74).
-      // First 28 days: $10 + $99 + $316.68 = $425.68. Added period: $10 + $341.35 = $351.35.
-      first: { unit: 10.00, delivery: 99.00, service: 316.68 },
-      added: { unit: 10.00, service: 341.35 },
+      first: { unit: 10.00, delivery: 99.00, service: 207.47 },
+      added: { unit: 10.00, service: 207.47 },
     },
     {
       id: "deluxe-flush",
@@ -205,7 +202,9 @@ const RESTROOM_PRICES = {
       blurb: "Flushing toilet and sink",
       image: "img/deluxe-flushable-restroom-with-sink.webp",
       imageAlt: "Deluxe flushable portable restroom",
-      // Dustin 11/23/2026. Same rate as Deluxe with Sink. See the note above.
+      // Dustin 11/23/2026. Deluxe Flushable only. Deluxe with Sink stays at the prior rate.
+      // Global cost $315 first 28 days and $260 each added period, at a 26% margin (cost / 0.74).
+      // First 28 days: $10 + $99 + $316.68 = $425.68. Added period: $10 + $341.35 = $351.35.
       first: { unit: 10.00, delivery: 99.00, service: 316.68 },
       added: { unit: 10.00, service: 341.35 },
     },
